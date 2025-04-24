@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { ArrowDownNarrowWide, ArrowUpNarrowWide, ArrowUpRight, ArrowDownRight, Edit, Plus } from "lucide-react"
 import Link from "next/link"
@@ -52,17 +52,25 @@ interface SortConfig {
   direction: 'asc' | 'desc';
 }
 
-export default function ItemsPage() {
+function ItemsContent() {
   const searchParams = useSearchParams()
-  const initialBatchFilter = searchParams.get('batch') || "all"
-
+  const [initialBatchFilter, setInitialBatchFilter] = useState("all")
   const [items, setItems] = useState<Item[]>([])
   const [batches, setBatches] = useState<Batch[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [batchFilter, setBatchFilter] = useState(initialBatchFilter)
+  const [batchFilter, setBatchFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'asc' })
+
+  // Set initial batch filter from URL params
+  useEffect(() => {
+    const batch = searchParams.get('batch')
+    if (batch) {
+      setInitialBatchFilter(batch)
+      setBatchFilter(batch)
+    }
+  }, [searchParams])
 
   // Fetch items and batches
   useEffect(() => {
@@ -397,5 +405,19 @@ export default function ItemsPage() {
         </CardContent>
       </Card>
     </DashboardLayout>
+  )
+}
+
+export default function ItemsPage() {
+  return (
+    <Suspense fallback={
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[50vh]">
+          <p>Loading items...</p>
+        </div>
+      </DashboardLayout>
+    }>
+      <ItemsContent />
+    </Suspense>
   )
 }
