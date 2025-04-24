@@ -379,7 +379,7 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>{mode === "create" ? "Add New Batch" : "Edit Batch"}</CardTitle>
+        <CardTitle>{mode === "create" ? "New Batch" : "Edit Batch"}</CardTitle>
         <CardDescription>
           {mode === "create"
             ? "Create a new batch of thrift items for your inventory"

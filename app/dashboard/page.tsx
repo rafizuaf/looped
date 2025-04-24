@@ -378,14 +378,16 @@ export default function DashboardPage() {
                     value={formatCurrency(dashboardStats.totalRevenue)}
                     description="Total revenue from sold items"
                     icon={<CreditCard className="h-4 w-4" />}
-                    className="bg-green-50 dark:bg-green-950"
+                    className="bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
                 />
                 <StatsCard
                     title="Total Expenses"
                     value={formatCurrency(dashboardStats.totalExpenses)}
                     description="Total expenses (items + operational costs)"
                     icon={<ShoppingBag className="h-4 w-4" />}
-                    className={`${dashboardStats.totalExpenses > dashboardStats.totalRevenue ? 'text-red-600' : 'text-green-600'} bg-red-50 dark:bg-red-950`}
+                    className={`${dashboardStats.totalExpenses > dashboardStats.totalRevenue 
+                        ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' 
+                        : 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300'}`}
                 />
                 <StatsCard
                     title="Net Profit"
@@ -397,13 +399,12 @@ export default function DashboardPage() {
                     }
                     icon={
                         dashboardStats.netProfit > 0
-                            ? <ArrowUpRight className="h-4 w-4 text-green-600" />
-                            : <ArrowDownRight className="h-4 w-4 text-red-600" />
+                            ? <ArrowUpRight className="h-4 w-4 text-green-700 dark:text-green-300" />
+                            : <ArrowDownRight className="h-4 w-4 text-red-700 dark:text-red-300" />
                     }
-                    className={`${dashboardStats.netProfit > 0 ? 'text-green-600' : 'text-red-600'} ${dashboardStats.netProfit > 0
-                        ? "bg-green-50 dark:bg-green-950"
-                        : "bg-red-50 dark:bg-red-950"
-                        }`}
+                    className={`${dashboardStats.netProfit > 0 
+                        ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300' 
+                        : 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300'}`}
                 />
                 <StatsCard
                     title="Items Sold"
@@ -412,7 +413,7 @@ export default function DashboardPage() {
                         ? `${Math.round((dashboardStats.totalSold / dashboardStats.totalItems) * 100)}% sell-through rate`
                         : "No items added yet"}
                     icon={<BarChart className="h-4 w-4" />}
-                    className="bg-blue-50 dark:bg-blue-950"
+                    className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
                 />
                 <StatsCard
                     title="Current Budget"
@@ -423,7 +424,7 @@ export default function DashboardPage() {
                             : "No top-ups yet"
                     }
                     icon={<Wallet className="h-4 w-4" />}
-                    className="bg-purple-50 dark:bg-purple-950"
+                    className="bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
                 />
             </div>
 
@@ -485,9 +486,17 @@ export default function DashboardPage() {
                     </Card>
 
                     <Card className="lg:col-span-1">
-                        <CardHeader>
-                            <CardTitle>Recent Batches</CardTitle>
-                            <CardDescription>Latest thrift batches added</CardDescription>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle>Recent Batches</CardTitle>
+                                <CardDescription>Latest thrift batches added</CardDescription>
+                            </div>
+                            <Link href="/batches/new" passHref>
+                                <Button variant="outline" size="sm">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    New Batch
+                                </Button>
+                            </Link>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
@@ -560,12 +569,6 @@ export default function DashboardPage() {
             </div>
 
             <div className="mt-6">
-                <Link href="/batches/new" passHref>
-                    <Button variant="outline">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add New Batch
-                    </Button>
-                </Link>
             </div>
         </DashboardLayout>
     );

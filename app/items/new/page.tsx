@@ -77,7 +77,7 @@ export default function NewItemPage() {
   return (
     <DashboardLayout>
       <div className="flex flex-col gap-2 mb-6">
-        <h1 className="text-3xl font-bold">Add New Item</h1>
+        <h1 className="text-3xl font-bold">New Item</h1>
         <p className="text-muted-foreground">
           Create a new thrift item
         </p>

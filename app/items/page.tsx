@@ -251,7 +251,7 @@ function ItemsContent() {
         <Button variant="outline" asChild>
           <Link href="/items/new">
           <Plus className="2-4 h-4 mr-2" />
-          Add New Item
+          New Item
           </Link>
         </Button>
       </div>

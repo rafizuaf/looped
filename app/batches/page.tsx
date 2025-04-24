@@ -149,7 +149,7 @@ export default function BatchesPage() {
         <Link href="/batches/new" passHref>
           <Button variant="outline">
             <Plus className="h-4 w-4 mr-2" />
-            Add New Batch
+            New Batch
           </Button>
         </Link>
       </div>
