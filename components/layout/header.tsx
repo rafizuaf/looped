@@ -78,17 +78,6 @@ export function Header() {
             Dashboard
           </Link>
           <Link
-            href="/budget"
-            className={cn(
-              "text-sm font-medium transition-colors relative",
-              pathname === "/budget"
-                ? "text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary after:rounded-full"
-                : "text-muted-foreground hover:text-primary"
-            )}
-          >
-            Budget
-          </Link>
-          <Link
             href="/batches"
             className={cn(
               "text-sm font-medium transition-colors relative",
@@ -98,6 +87,17 @@ export function Header() {
             )}
           >
             Batches
+          </Link>
+          <Link
+            href="/budget"
+            className={cn(
+              "text-sm font-medium transition-colors relative",
+              pathname === "/budget"
+                ? "text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary after:rounded-full"
+                : "text-muted-foreground hover:text-primary"
+            )}
+          >
+            Budget
           </Link>
           <Link
             href="/items"

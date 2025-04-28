@@ -43,6 +43,13 @@ export function MobileNav() {
             Batches
           </Link>
           <Link
+            href="/budget"
+            className="text-base font-medium text-muted-foreground transition-colors hover:text-primary"
+            onClick={() => setOpen(false)}
+          >
+            Budget
+          </Link>
+          <Link
             href="/items"
             className="text-base font-medium text-muted-foreground transition-colors hover:text-primary"
             onClick={() => setOpen(false)}
