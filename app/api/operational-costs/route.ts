@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server"
 import { NextResponse } from "next/server"
 
+// GET /api/operational-costs
 export async function GET(request: Request) {
     try {
         const supabase = await createClient()
@@ -54,10 +55,14 @@ export async function GET(request: Request) {
         return NextResponse.json(costs)
     } catch (error: any) {
         console.error("Error fetching operational costs:", error)
-        return NextResponse.json({ error: "Error fetching operational costs", message: error.message }, { status: 500 })
+        return NextResponse.json(
+            { error: "Error fetching operational costs", message: error.message },
+            { status: 500 }
+        )
     }
 }
 
+// POST /api/operational-costs
 export async function POST(request: Request) {
     try {
         const supabase = await createClient()
@@ -101,6 +106,14 @@ export async function POST(request: Request) {
             )
         }
 
+        // Validate amount is positive
+        if (data.amount <= 0) {
+            return NextResponse.json(
+                { error: "Invalid amount", message: "Amount must be positive" },
+                { status: 400 }
+            )
+        }
+
         // Use the budget-aware function for operational costs
         const { data: result, error } = await supabase.rpc(
             'add_operational_cost_with_budget_check',
@@ -126,10 +139,14 @@ export async function POST(request: Request) {
         return NextResponse.json(result.operational_cost)
     } catch (error: any) {
         console.error("Error creating operational cost:", error)
-        return NextResponse.json({ error: "Error creating operational cost", message: error.message }, { status: 500 })
+        return NextResponse.json(
+            { error: "Error creating operational cost", message: error.message },
+            { status: 500 }
+        )
     }
 }
 
+// PUT /api/operational-costs
 export async function PUT(request: Request) {
     try {
         const supabase = await createClient()
@@ -174,6 +191,14 @@ export async function PUT(request: Request) {
             )
         }
 
+        // Validate amount is positive
+        if (updateData.amount <= 0) {
+            return NextResponse.json(
+                { error: "Invalid amount", message: "Amount must be positive" },
+                { status: 400 }
+            )
+        }
+
         const { data: cost, error } = await supabase
             .from("operational_costs")
             .update(updateData)
@@ -186,10 +211,14 @@ export async function PUT(request: Request) {
         return NextResponse.json(cost)
     } catch (error: any) {
         console.error("Error updating operational cost:", error)
-        return NextResponse.json({ error: "Error updating operational cost", message: error.message }, { status: 500 })
+        return NextResponse.json(
+            { error: "Error updating operational cost", message: error.message },
+            { status: 500 }
+        )
     }
 }
 
+// DELETE /api/operational-costs
 export async function DELETE(request: Request) {
     try {
         const supabase = await createClient()
@@ -227,7 +256,10 @@ export async function DELETE(request: Request) {
         }
 
         if (!id) {
-            return NextResponse.json({ error: "ID is required" }, { status: 400 })
+            return NextResponse.json(
+                { error: "Missing ID", message: "Operational cost ID is required" },
+                { status: 400 }
+            )
         }
 
         const { data: cost, error } = await supabase
@@ -242,6 +274,9 @@ export async function DELETE(request: Request) {
         return NextResponse.json(cost)
     } catch (error: any) {
         console.error("Error deleting operational cost:", error)
-        return NextResponse.json({ error: "Error deleting operational cost", message: error.message }, { status: 500 })
+        return NextResponse.json(
+            { error: "Error deleting operational cost", message: error.message },
+            { status: 500 }
+        )
     }
 }

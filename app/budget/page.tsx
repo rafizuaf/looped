@@ -7,10 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import { AlertCircle, ArrowUpCircle, ArrowDownCircle, DollarSign } from "lucide-react"
+import { AlertCircle, ArrowUpCircle, ArrowDownCircle, DollarSign, Trash2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { format } from "date-fns"
 
 export default function BudgetPage() {
     const [budget, setBudget] = useState<any>(null)
@@ -22,9 +25,6 @@ export default function BudgetPage() {
     const router = useRouter()
     const { user, isLoading: authLoading } = useAuth()
 
-    console.log("is submitting", isSubmitting);
-    
-
     // Fetch budget data
     useEffect(() => {
         async function fetchBudget() {
@@ -35,8 +35,8 @@ export default function BudgetPage() {
 
             try {
                 setIsLoading(true)
-                const response = await fetch("/api/budget", {
-                    credentials: 'include', // This is important for sending cookies
+                const response = await fetch("/api/budget?includeTransactions=true", {
+                    credentials: 'include',
                     headers: {
                         'Content-Type': 'application/json',
                     },
@@ -75,26 +75,26 @@ export default function BudgetPage() {
 
             const amount = parseFloat(topUpAmount)
 
-            if (isNaN(amount) || amount <= 0) {
-                setError("Please enter a valid positive amount")
+            if (isNaN(amount) || amount === 0) {
+                setError("Please enter a valid amount")
                 return
             }
 
             const response = await fetch("/api/budget", {
                 method: "POST",
-                credentials: 'include', // This is important for sending cookies
+                credentials: 'include',
                 headers: { 
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
                     amount,
-                    description: topUpDescription || "Budget top-up"
+                    description: topUpDescription || "Budget adjustment"
                 }),
             })
 
             if (!response.ok) {
                 const data = await response.json()
-                throw new Error(data.message || "Failed to top up budget")
+                throw new Error(data.message || "Failed to adjust budget")
             }
 
             const result = await response.json()
@@ -107,23 +107,53 @@ export default function BudgetPage() {
                     ...budget.statistics,
                     total_top_ups: (parseFloat(budget.statistics?.total_top_ups || 0) + amount).toString(),
                     top_up_count: (parseInt(budget.statistics?.top_up_count || 0) + 1).toString(),
-                }
+                },
+                transactions: [result.transaction, ...(budget.transactions || [])]
             })
 
             // Reset form
             setTopUpAmount("")
             setTopUpDescription("")
 
-            toast.success("Budget topped up successfully")
+            toast.success("Budget adjusted successfully")
         } catch (error: any) {
-            console.error("Error topping up budget:", error)
-            setError(error.message || "Failed to top up budget")
-            toast.error("Failed to top up budget")
+            console.error("Error adjusting budget:", error)
+            setError(error.message || "Failed to adjust budget")
+            toast.error("Failed to adjust budget")
             if (error.message.includes('Unauthorized')) {
                 router.push('/auth/login')
             }
         } finally {
             setIsSubmitting(false)
+        }
+    }
+
+    // Handle transaction deletion
+    async function handleDeleteTransaction(transactionId: string) {
+        try {
+            const response = await fetch(`/api/budget/transaction?id=${transactionId}`, {
+                method: "DELETE",
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+
+            if (!response.ok) {
+                const data = await response.json()
+                throw new Error(data.message || "Failed to delete transaction")
+            }
+
+            // Update local state
+            setBudget({
+                ...budget,
+                transactions: budget.transactions.filter((t: any) => t.id !== transactionId)
+            })
+
+            toast.success("Transaction deleted successfully")
+        } catch (error: any) {
+            console.error("Error deleting transaction:", error)
+            toast.error("Failed to delete transaction")
         }
     }
 
@@ -277,12 +307,12 @@ export default function BudgetPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Top Up Form Card */}
+                    {/* Budget Management Card */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Top Up Budget</CardTitle>
+                            <CardTitle>Adjust Budget</CardTitle>
                             <CardDescription>
-                                Add funds to your budget to purchase items
+                                Add or deduct funds from your budget
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -298,6 +328,9 @@ export default function BudgetPage() {
                                             onChange={(e) => setTopUpAmount(e.target.value)}
                                             required
                                         />
+                                        <p className="text-sm text-muted-foreground">
+                                            Enter a positive number to add funds, negative to deduct
+                                        </p>
                                     </div>
 
                                     <div className="space-y-2">
@@ -315,15 +348,82 @@ export default function BudgetPage() {
                                         className="w-full"
                                         disabled={isSubmitting || !topUpAmount}
                                     >
-                                        {isSubmitting ? "Processing..." : "Top Up Budget"}
+                                        {isSubmitting ? "Processing..." : "Adjust Budget"}
                                     </Button>
                                 </div>
                             </form>
                         </CardContent>
                         <CardFooter className="flex flex-col items-start px-6 text-sm text-muted-foreground">
-                            <p>Top-ups are used for purchasing new batches and covering operational costs.</p>
-                            <p className="mt-1">Your budget will be updated immediately after topping up.</p>
+                            <p>Budget adjustments are used for managing your available funds.</p>
+                            <p className="mt-1">Your budget will be updated immediately after adjustment.</p>
                         </CardFooter>
+                    </Card>
+                </div>
+
+                {/* Transaction History */}
+                <div className="mt-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Transaction History</CardTitle>
+                            <CardDescription>
+                                Recent budget transactions
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Date</TableHead>
+                                        <TableHead>Type</TableHead>
+                                        <TableHead>Description</TableHead>
+                                        <TableHead className="text-right">Amount</TableHead>
+                                        <TableHead></TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {budget?.transactions?.map((transaction: any) => (
+                                        <TableRow key={transaction.id}>
+                                            <TableCell>
+                                                {format(new Date(transaction.created_at), 'PPp')}
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className={`capitalize ${
+                                                    transaction.transaction_type === 'top_up' ? 'text-green-600' :
+                                                    transaction.transaction_type === 'batch_purchase' ? 'text-red-600' :
+                                                    transaction.transaction_type === 'operational_cost' ? 'text-orange-600' :
+                                                    transaction.transaction_type === 'item_sale' ? 'text-blue-600' :
+                                                    'text-gray-600'
+                                                }`}>
+                                                    {transaction.transaction_type.replace('_', ' ')}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>{transaction.description}</TableCell>
+                                            <TableCell className={`text-right ${
+                                                transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
+                                            }`}>
+                                                Rp {Math.abs(transaction.amount).toLocaleString()}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handleDeleteTransaction(transaction.id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {(!budget?.transactions || budget.transactions.length === 0) && (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                                No transactions found
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
                     </Card>
                 </div>
 

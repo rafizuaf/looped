@@ -70,6 +70,7 @@ export function SignupForm() {
     }
 
     return (
+        <div className="flex h-screen items-center justify-center container mx-auto">
         <Card className="w-full max-w-md mx-auto">
             <CardHeader>
                 <CardTitle className="text-2xl">Sign up</CardTitle>
@@ -126,5 +127,6 @@ export function SignupForm() {
                 </p>
             </CardFooter>
         </Card>
+        </div>
     );
 }
