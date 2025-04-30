@@ -10,17 +10,16 @@ import { toast } from "sonner"
 import { AlertCircle, ArrowUpCircle, ArrowDownCircle, DollarSign, Trash2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { format } from "date-fns"
 import { LoadingIndicator } from "@/components/ui/loading-indicator"
-import { useToast } from "@/components/ui/use-toast"
 
 export default function BudgetPage() {
     const [budget, setBudget] = useState<any>(null)
     const [topUpAmount, setTopUpAmount] = useState("")
     const [topUpDescription, setTopUpDescription] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [initialLoading, setInitialLoading] = useState(true)
     const [error, setError] = useState("")
     const router = useRouter()
     const { user, isLoading: authLoading } = useAuth()
@@ -58,6 +57,8 @@ export default function BudgetPage() {
                 if (error.message.includes('Unauthorized')) {
                     router.push('/auth/login')
                 }
+            } finally {
+                setInitialLoading(false)
             }
         }
 
@@ -168,7 +169,7 @@ export default function BudgetPage() {
     }
 
     // Loading state
-    if (authLoading) {
+    if (authLoading || initialLoading || !budget) {
         return (
             <LoadingIndicator fullPage />
         )
@@ -224,10 +225,14 @@ export default function BudgetPage() {
                                 <div className="bg-primary/10 p-6 rounded-lg">
                                     <h3 className="text-sm font-medium text-muted-foreground mb-2">Current Balance</h3>
                                     <p className="text-4xl font-bold">
-                                        Rp {budget?.current_budget?.toLocaleString() || '0'}
+                                        {budget && budget.current_budget !== undefined ? 
+                                            `Rp ${budget.current_budget.toLocaleString()}` : 
+                                            <LoadingIndicator />}
                                     </p>
                                     <p className="text-xs text-muted-foreground mt-1">
-                                        Last updated: {budget?.budget_updated_at ? new Date(budget.budget_updated_at).toLocaleString() : 'Never'}
+                                        {budget && budget.budget_updated_at ? 
+                                            `Last updated: ${new Date(budget.budget_updated_at).toLocaleString()}` : 
+                                            <LoadingIndicator />}
                                     </p>
                                 </div>
                             </div>
@@ -241,7 +246,9 @@ export default function BudgetPage() {
                                         <div>
                                             <p className="text-sm font-medium">Total Top-ups</p>
                                             <p className="text-lg font-bold">
-                                                Rp {parseFloat(budget?.statistics?.total_top_ups || 0).toLocaleString()}
+                                                {budget && budget.statistics ? 
+                                                    `Rp ${parseFloat(budget.statistics.total_top_ups || 0).toLocaleString()}` : 
+                                                    <LoadingIndicator />}
                                             </p>
                                         </div>
                                     </div>
@@ -253,7 +260,9 @@ export default function BudgetPage() {
                                         <div>
                                             <p className="text-sm font-medium">Total Purchases</p>
                                             <p className="text-lg font-bold">
-                                                Rp {Math.abs(parseFloat(budget?.statistics?.total_batch_purchases || 0)).toLocaleString()}
+                                                {budget && budget.statistics ? 
+                                                    `Rp ${Math.abs(parseFloat(budget.statistics.total_batch_purchases || 0)).toLocaleString()}` : 
+                                                    <LoadingIndicator />}
                                             </p>
                                         </div>
                                     </div>
@@ -265,7 +274,9 @@ export default function BudgetPage() {
                                         <div>
                                             <p className="text-sm font-medium">Operational Costs</p>
                                             <p className="text-lg font-bold">
-                                                Rp {Math.abs(parseFloat(budget?.statistics?.total_operational_costs || 0)).toLocaleString()}
+                                                {budget && budget.statistics ? 
+                                                    `Rp ${Math.abs(parseFloat(budget.statistics.total_operational_costs || 0)).toLocaleString()}` : 
+                                                    <LoadingIndicator />}
                                             </p>
                                         </div>
                                     </div>
@@ -277,7 +288,9 @@ export default function BudgetPage() {
                                         <div>
                                             <p className="text-sm font-medium">Total Sales</p>
                                             <p className="text-lg font-bold">
-                                                Rp {parseFloat(budget?.statistics?.total_sales || 0).toLocaleString()}
+                                                {budget && budget.statistics ? 
+                                                    `Rp ${parseFloat(budget.statistics.total_sales || 0).toLocaleString()}` : 
+                                                    <LoadingIndicator />}
                                             </p>
                                         </div>
                                     </div>
@@ -286,19 +299,27 @@ export default function BudgetPage() {
                                 <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                                     <div>
                                         <p className="text-sm text-muted-foreground">Top-up Transactions</p>
-                                        <p className="text-lg font-medium">{budget?.statistics?.top_up_count || 0}</p>
+                                        <p className="text-lg font-medium">
+                                            {budget && budget.statistics ? budget.statistics.top_up_count || 0 : <LoadingIndicator />}
+                                        </p>
                                     </div>
                                     <div>
                                         <p className="text-sm text-muted-foreground">Batch Purchases</p>
-                                        <p className="text-lg font-medium">{budget?.statistics?.batch_purchase_count || 0}</p>
+                                        <p className="text-lg font-medium">
+                                            {budget && budget.statistics ? budget.statistics.batch_purchase_count || 0 : <LoadingIndicator />}
+                                        </p>
                                     </div>
                                     <div>
                                         <p className="text-sm text-muted-foreground">Operational Costs</p>
-                                        <p className="text-lg font-medium">{budget?.statistics?.operational_cost_count || 0}</p>
+                                        <p className="text-lg font-medium">
+                                            {budget && budget.statistics ? budget.statistics.operational_cost_count || 0 : <LoadingIndicator />}
+                                        </p>
                                     </div>
                                     <div>
                                         <p className="text-sm text-muted-foreground">Items Sold</p>
-                                        <p className="text-lg font-medium">{budget?.statistics?.item_sale_count || 0}</p>
+                                        <p className="text-lg font-medium">
+                                            {budget && budget.statistics ? budget.statistics.item_sale_count || 0 : <LoadingIndicator />}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
