@@ -14,7 +14,7 @@ import {
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FinancialData } from "@/types"
-import { formatCurrency } from "@/lib/sample-data"
+import { formatCurrency } from "@/lib/utils"
 
 interface OverviewChartProps {
   data: FinancialData[]
