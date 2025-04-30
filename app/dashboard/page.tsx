@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { BarChart, LineChart, ShoppingBag, CreditCard, ArrowUpRight, ArrowDownRight, Edit, Wallet, Plus } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { OverviewChart } from "@/components/dashboard/overview-chart";
 import { DataTable } from "@/components/dashboard/items-table";
@@ -270,7 +269,14 @@ export default function DashboardPage() {
             header: "Batch",
             cell: ({ row }: any) => {
                 const batch = batches.find(b => b.id === row.original.batch_id);
-                return batch ? batch.name : 'Unknown Batch';
+                return batch ? (
+                    <Link
+                        href={`/batches/${batch.id}`}
+                        className="text-sm font-medium leading-none hover:underline"
+                    >
+                        {batch.name}
+                    </Link>
+                ) : 'Unknown Batch';
             },
         },
         {
@@ -364,7 +370,7 @@ export default function DashboardPage() {
     ];
 
     return (
-        <DashboardLayout>
+        <>
             <div className="flex flex-col gap-2">
                 <h1 className="text-3xl font-bold">Dashboard</h1>
                 <p className="text-muted-foreground">
@@ -385,8 +391,8 @@ export default function DashboardPage() {
                     value={formatCurrency(dashboardStats.totalExpenses)}
                     description="Total expenses (items + operational costs)"
                     icon={<ShoppingBag className="h-4 w-4" />}
-                    className={`${dashboardStats.totalExpenses > dashboardStats.totalRevenue 
-                        ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' 
+                    className={`${dashboardStats.totalExpenses > dashboardStats.totalRevenue
+                        ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300'
                         : 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300'}`}
                 />
                 <StatsCard
@@ -402,8 +408,8 @@ export default function DashboardPage() {
                             ? <ArrowUpRight className="h-4 w-4 text-green-700 dark:text-green-300" />
                             : <ArrowDownRight className="h-4 w-4 text-red-700 dark:text-red-300" />
                     }
-                    className={`${dashboardStats.netProfit > 0 
-                        ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300' 
+                    className={`${dashboardStats.netProfit > 0
+                        ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300'
                         : 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300'}`}
                 />
                 <StatsCard
@@ -526,7 +532,12 @@ export default function DashboardPage() {
                                                 <LineChart className="h-4 w-4" />
                                             </div>
                                             <div className="flex-1 space-y-1">
-                                                <p className="text-sm font-medium leading-none">{batch.name}</p>
+                                                <Link
+                                                    href={`/batches/${batch.id}`}
+                                                    className="text-sm font-medium leading-none hover:underline"
+                                                >
+                                                    {batch.name}
+                                                </Link>
                                                 <p className="text-sm text-muted-foreground">
                                                     {new Date(batch.purchase_date).toLocaleDateString()}
                                                 </p>
@@ -570,6 +581,6 @@ export default function DashboardPage() {
 
             <div className="mt-6">
             </div>
-        </DashboardLayout>
+        </>
     );
 }

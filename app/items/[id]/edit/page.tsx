@@ -26,6 +26,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
+import { LoadingIndicator } from "@/components/ui/loading-indicator"
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required" }),
@@ -66,7 +67,9 @@ export default function EditItemPage({ params }: { params: { id: string } }) {
         const response = await fetch(`/api/items/${params.id}`)
         if (!response.ok) throw new Error("Failed to fetch item")
 
-        const item = await response.json()
+        const { data: item } = await response.json()
+        if (!item) throw new Error("Item not found")
+
         form.reset({
           name: item.name,
           category: item.category,
@@ -112,12 +115,20 @@ export default function EditItemPage({ params }: { params: { id: string } }) {
         body: formData,
       })
 
-      if (!response.ok) throw new Error("Failed to update item")
+      const result = await response.json()
 
-      toast.success("Item updated successfully")
+      if (!response.ok) {
+        if (result.type === "INSUFFICIENT_BUDGET") {
+          toast.error(result.message)
+          return
+        }
+        throw new Error(result.message || "Failed to update item")
+      }
+
+      toast.success(result.message || "Item updated successfully")
       router.push("/items")
-    } catch (error) {
-      toast.error("Error updating item")
+    } catch (error: any) {
+      toast.error(error.message || "Error updating item")
     } finally {
       setIsSubmitting(false)
     }
@@ -125,14 +136,12 @@ export default function EditItemPage({ params }: { params: { id: string } }) {
 
   if (isLoading) {
     return (
-      <DashboardLayout>
-        <div>Loading...</div>
-      </DashboardLayout>
+      <LoadingIndicator fullPage />
     )
   }
 
   return (
-    <DashboardLayout>
+    <>
       <div className="flex flex-col gap-2 mb-6">
         <h1 className="text-3xl font-bold">Edit Item</h1>
         <p className="text-muted-foreground">
@@ -261,6 +270,6 @@ export default function EditItemPage({ params }: { params: { id: string } }) {
           </Form>
         </CardContent>
       </Card>
-    </DashboardLayout>
+    </>
   )
 }

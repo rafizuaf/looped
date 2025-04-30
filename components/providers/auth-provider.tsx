@@ -24,25 +24,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        async function loadSession() {
-            const { data } = await supabase.auth.getSession();
-            setSession(data.session);
-            setUser(data.session?.user || null);
+        // Get initial session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+            setUser(session?.user ?? null);
             setIsLoading(false);
-        }
+        });
 
-        loadSession();
-
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-            (event: AuthChangeEvent, session: Session | null) => {
-                setSession(session);
-                setUser(session?.user || null);
-                setIsLoading(false);
-            }
-        );
+        // Listen for auth changes
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+            setUser(session?.user ?? null);
+            setIsLoading(false);
+        });
 
         return () => {
-            authListener.subscription.unsubscribe();
+            subscription.unsubscribe();
         };
     }, []);
 

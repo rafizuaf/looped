@@ -4,14 +4,13 @@ import { useState, useEffect } from "react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { X, Plus, Upload, AlertCircle } from "lucide-react"
+import { X, Plus, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/providers/auth-provider"
 import { Button } from "@/components/ui/button"
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -22,6 +21,23 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
+import { LoadingIndicator } from "../ui/loading-indicator"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { supabase } from '@/lib/supabase/client'
+import { Item, OperationalCost } from "@/types"
+
+interface OperationalCostFormData {
+  id?: string
+  name: string
+  amount: string
+  category: string
+}
 
 // Schema aligned with Supabase database
 const formSchema = z.object({
@@ -37,6 +53,7 @@ const formSchema = z.object({
       id: z.string().optional(),
       name: z.string().min(1, { message: "Cost name is required" }),
       amount: z.string().min(1, { message: "Amount is required" }),
+      category: z.string().min(1, { message: "Category is required" }),
     })
   ),
   items: z.array(
@@ -46,13 +63,44 @@ const formSchema = z.object({
       category: z.string().min(1, { message: "Category is required" }),
       purchase_price: z.string().min(1, { message: "Purchase price is required" }),
       selling_price: z.string().min(1, { message: "Selling price is required" }),
-      sold_status: z.string().default("unsold"),
+      sold_status: z.enum(['sold', 'unsold']).default("unsold"),
       image: z.any().optional(),
+      image_url: z.string().nullable().optional(),
     })
   ),
 })
 
+const COST_CATEGORIES = [
+  "general",
+  "equipment",
+  "props",
+  "rent",
+  "utilities",
+  "marketing",
+  "transportation",
+  "other"
+]
+
 type FormValues = z.infer<typeof formSchema>
+
+interface BatchFormData {
+  name: string
+  description: string
+  items: Item[]
+  operational_costs: {
+    name: string
+    amount: string
+  }[]
+  total_operational_costs: string
+  total_investment: string
+  total_revenue: string
+  total_profit: string
+  profit_margin: string
+  roi: string
+  status: string
+  image?: File
+  image_url?: string
+}
 
 interface BatchFormProps {
   mode?: "create" | "edit"
@@ -71,9 +119,16 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
   const defaultValues: FormValues = {
     name: initialData?.name || "",
     description: initialData?.description || "",
-    purchase_date: initialData?.purchase_date || new Date().toISOString().split("T")[0],
-    operational_costs: initialData?.operational_costs || [
-      { name: "", amount: "" },
+    purchase_date: initialData?.purchase_date 
+      ? new Date(initialData.purchase_date).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0],
+    operational_costs: initialData?.operational_costs?.map((cost: OperationalCost) => ({
+      id: cost.id,
+      name: cost.name,
+      amount: cost.amount.toString(),
+      category: cost.category || "general"
+    })) || [
+      { name: "", amount: "", category: "general" },
     ],
     items: initialData?.items || [
       { name: "", category: "", purchase_price: "", selling_price: "", image: null },
@@ -88,7 +143,21 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
   // Reset form when initialData changes
   useEffect(() => {
     if (initialData) {
-      form.reset(defaultValues)
+      form.reset({
+        ...initialData,
+        purchase_date: new Date(initialData.purchase_date).toISOString().split('T')[0],
+        operational_costs: initialData.operational_costs?.map((cost: OperationalCost) => ({
+          id: cost.id,
+          name: cost.name,
+          amount: cost.amount.toString(),
+          category: cost.category || "general"
+        })) || [
+          { name: "", amount: "", category: "general" },
+        ],
+        items: initialData.items || [
+          { name: "", category: "", purchase_price: "", selling_price: "", image: null },
+        ],
+      })
     }
   }, [initialData, form])
 
@@ -102,8 +171,8 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
         const response = await fetch("/api/budget")
         if (!response.ok) throw new Error("Failed to fetch budget")
 
-        const data = await response.json()
-        setCurrentBudget(data.current_budget)
+        const result = await response.json()
+        setCurrentBudget(result.data.current_budget)
       } catch (error) {
         console.error("Error fetching budget:", error)
       } finally {
@@ -129,13 +198,30 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
   }
 
   const totalEstimatedCost = calculateTotalCost()
+  
+  // Calculate current batch cost for edit mode
+  const currentBatchCost = mode === "edit" ? 
+    (initialData?.items?.reduce((sum: number, item: any) => 
+      sum + parseFloat(item.purchase_price || "0"), 0) || 0) +
+    (initialData?.operational_costs?.reduce((sum: number, cost: any) => 
+      sum + parseFloat(cost.amount || "0"), 0) || 0) 
+    : 0
+
+  // Calculate display values for budget information
+  const displayBudget = currentBudget === null ? 0 : currentBudget
+  const displayCost = mode === "edit" ? totalEstimatedCost - currentBatchCost : totalEstimatedCost
+  const displayRemaining = displayBudget - displayCost
+  const isSaving = displayCost < 0
+  const isIncreasing = displayCost > 0
+
   // Check if we have enough budget
-  const hasEnoughBudget = currentBudget === null ? true : currentBudget >= totalEstimatedCost
+  const hasEnoughBudget = currentBudget === null ? true : 
+    (currentBudget + currentBatchCost) >= totalEstimatedCost
 
   const addOperationalCost = () => {
     form.setValue("operational_costs", [
       ...operational_costs,
-      { name: "", amount: "" },
+      { name: "", amount: "", category: "general" },
     ])
   }
 
@@ -179,6 +265,31 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
       const totalCost = totalItemsCost + totalOperationalCost;
 
       if (mode === "create") {
+        // Upload images first if any
+        const itemsWithImages = await Promise.all(values.items.map(async (item) => {
+          if (item.image) {
+            const formData = new FormData()
+            formData.append('file', item.image)
+            formData.append('bucket', 'item-images')
+            
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('item-images')
+              .upload(`${user.id}/${Date.now()}-${item.image.name}`, item.image)
+
+            if (uploadError) throw uploadError
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('item-images')
+              .getPublicUrl(uploadData.path)
+
+            return {
+              ...item,
+              image_url: publicUrl
+            }
+          }
+          return item
+        }))
+
         // Create batch with user_id and calculated totals
         const batchResponse = await fetch("/api/batches", {
           method: "POST",
@@ -189,146 +300,74 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
             purchase_date: values.purchase_date,
             total_items: values.items.length,
             total_cost: totalCost,
-            total_sold: 0, // New batch starts with 0 sold
-            total_revenue: 0, // New batch starts with 0 revenue
             user_id: user.id,
+            items: itemsWithImages.map(item => {
+              const mappedItem = {
+                name: item.name,
+                category: item.category,
+                purchase_price: item.purchase_price,
+                selling_price: item.selling_price,
+                sold_status: item.sold_status || "unsold"
+              };
+              
+              if ('image_url' in item && item.image_url) {
+                return { ...mappedItem, image_url: item.image_url };
+              }
+              
+              return mappedItem;
+            }),
+            operational_costs: values.operational_costs.map(cost => ({
+              name: cost.name,
+              amount: cost.amount,
+              category: cost.category || "general"
+            }))
           }),
         })
 
         const batchResult = await batchResponse.json()
 
         if (!batchResponse.ok) {
-          if (batchResult.type === "INSUFFICIENT_BUDGET") {
+          if (batchResult.error?.includes("Insufficient budget")) {
             setBudgetError(batchResult.error || "Insufficient budget for this purchase")
             return
           }
-          throw new Error("Failed to create batch")
-        }
-
-        const batch = batchResult
-
-        // Create items with user_id and calculated margin values
-        for (const item of values.items) {
-          const purchasePrice = parseFloat(item.purchase_price);
-          const sellingPrice = parseFloat(item.selling_price);
-          const marginValue = sellingPrice - purchasePrice;
-          const marginPercentage = (marginValue / purchasePrice) * 100;
-
-          const formData = new FormData()
-          formData.append("batch_id", batch.id)
-          formData.append("name", item.name)
-          formData.append("category", item.category)
-          formData.append("purchase_price", item.purchase_price)
-          formData.append("selling_price", item.selling_price)
-          formData.append("margin_percentage", marginPercentage.toString())
-          formData.append("margin_value", marginValue.toString())
-          formData.append("sold_status", item.sold_status || "unsold") // New items start as unsold
-          formData.append("total_cost", item.purchase_price) // For single items, total_cost equals purchase_price
-          formData.append("user_id", user.id)
-
-          if (item.image) {
-            formData.append("image", item.image)
-          }
-
-          const itemResponse = await fetch("/api/items", {
-            method: "POST",
-            body: formData,
-          })
-
-          if (!itemResponse.ok) throw new Error("Failed to create item")
-        }
-
-        // Create operational costs with user_id
-        for (const cost of values.operational_costs) {
-          const costResponse = await fetch("/api/operational-costs", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              batch_id: batch.id,
-              name: cost.name,
-              amount: parseFloat(cost.amount),
-              date: values.purchase_date,
-              user_id: user.id,
-            }),
-          })
-
-          if (!costResponse.ok) {
-            const costResult = await costResponse.json()
-            if (costResult.type === "INSUFFICIENT_BUDGET") {
-              setBudgetError(costResult.error || "Insufficient budget for operational costs")
-              return
-            }
-            throw new Error("Failed to create operational cost")
-          }
+          throw new Error(batchResult.error || "Failed to create batch")
         }
 
         toast.success("Batch created successfully")
         router.push("/batches")
       } else {
-        // Update batch
-        const batchResponse = await fetch(`/api/batches/${initialData.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: values.name,
-            description: values.description,
-            purchase_date: values.purchase_date,
-            total_items: values.items.length,
-            total_cost: totalCost,
-            user_id: user.id,
-          }),
+        // Update batch using transaction
+        const { data, error } = await supabase.rpc('update_batch_with_transaction', {
+          p_batch_id: initialData.id,
+          p_name: values.name,
+          p_description: values.description,
+          p_purchase_date: values.purchase_date,
+          p_total_items: values.items.length,
+          p_total_cost: totalCost,
+          p_user_id: user.id,
+          p_items: values.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            category: item.category,
+            purchase_price: item.purchase_price,
+            selling_price: item.selling_price,
+            sold_status: item.sold_status || "unsold"
+          })),
+          p_operational_costs: values.operational_costs.map(cost => ({
+            id: cost.id,
+            name: cost.name,
+            amount: cost.amount,
+            category: cost.category || "general"
+          }))
         })
 
-        if (!batchResponse.ok) throw new Error("Failed to update batch")
-
-        // Update items
-        for (const item of values.items) {
-          const purchasePrice = parseFloat(item.purchase_price);
-          const sellingPrice = parseFloat(item.selling_price);
-          const marginValue = sellingPrice - purchasePrice;
-          const marginPercentage = (marginValue / purchasePrice) * 100;
-
-          const formData = new FormData()
-          formData.append("id", item.id || "")
-          formData.append("batch_id", initialData.id)
-          formData.append("name", item.name)
-          formData.append("category", item.category)
-          formData.append("purchase_price", item.purchase_price)
-          formData.append("selling_price", item.selling_price)
-          formData.append("margin_percentage", marginPercentage.toString())
-          formData.append("margin_value", marginValue.toString())
-          formData.append("sold_status", item.sold_status || "unsold")
-          formData.append("total_cost", item.purchase_price)
-          formData.append("user_id", user.id)
-
-          if (item.image) {
-            formData.append("image", item.image)
+        if (error) {
+          if (error.message?.includes("Insufficient budget")) {
+            setBudgetError(error.message)
+            return
           }
-
-          const itemResponse = await fetch("/api/items", {
-            method: item.id ? "PUT" : "POST",
-            body: formData,
-          })
-
-          if (!itemResponse.ok) throw new Error("Failed to update item")
-        }
-
-        // Update operational costs
-        for (const cost of values.operational_costs) {
-          const costResponse = await fetch("/api/operational-costs", {
-            method: cost.id ? "PUT" : "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id: cost.id,
-              batch_id: initialData.id,
-              name: cost.name,
-              amount: parseFloat(cost.amount),
-              date: values.purchase_date,
-              user_id: user.id,
-            }),
-          })
-
-          if (!costResponse.ok) throw new Error("Failed to update operational cost")
+          throw new Error(error.message || "Failed to update batch")
         }
 
         toast.success("Batch updated successfully")
@@ -344,29 +383,21 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
 
   if (isLoading) {
     return (
-      <Card className="w-full">
-        <CardContent className="p-6">
-          <Alert>
-            <AlertDescription>
-              Loading your account information...
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <LoadingIndicator fullPage />
     )
   }
 
   if (!user) {
     return (
       <Card className="w-full">
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <Alert variant="destructive">
             <AlertDescription>
               You must be logged in to create a batch. Please log in first.
             </AlertDescription>
           </Alert>
           <Button
-            className="mt-4"
+            className="mt-4 w-full sm:w-auto"
             onClick={() => router.push("/auth/login")}
           >
             Log In
@@ -378,7 +409,7 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
 
   return (
     <Card className="w-full">
-      <CardHeader>
+      <CardHeader className="p-4 sm:p-6">
         <CardTitle>{mode === "create" ? "New Batch" : "Edit Batch"}</CardTitle>
         <CardDescription>
           {mode === "create"
@@ -387,41 +418,42 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
           }
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4 sm:p-6">
         {/* Budget Information */}
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-2">
             <h3 className="text-lg font-medium">Current Budget</h3>
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => router.push("/budget")}
+              className="w-full sm:w-auto"
             >
               Manage Budget
             </Button>
           </div>
 
           {isLoadingBudget ? (
-            <p className="text-muted-foreground">Loading budget information...</p>
+            <LoadingIndicator  />
           ) : currentBudget !== null ? (
-            <div>
+            <div className="text-sm">
               <div className="flex justify-between items-center">
                 <span>Available funds:</span>
-                <span className={`font-semibold ${currentBudget < totalEstimatedCost ? 'text-destructive' : 'text-primary'}`}>
-                  Rp {currentBudget.toLocaleString()}
+                <span className={`font-semibold ${displayBudget < displayCost ? 'text-destructive' : 'text-primary'}`}>
+                  Rp {displayBudget?.toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between items-center mt-1">
-                <span>Estimated cost:</span>
-                <span className="font-semibold">
-                  Rp {totalEstimatedCost.toLocaleString()}
+                <span>Cost amount:</span>
+                <span className={`font-semibold ${isSaving ? 'text-green-600' : isIncreasing ? 'text-destructive' : ''}`}>
+                  {isSaving ? '-' : isIncreasing ? '+' : ''}Rp {Math.abs(displayCost)?.toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between items-center mt-1">
-                <span>Remaining after purchase:</span>
-                <span className={`font-semibold ${(currentBudget - totalEstimatedCost) < 0 ? 'text-destructive' : 'text-primary'}`}>
-                  Rp {(currentBudget - totalEstimatedCost).toLocaleString()}
+                <span>Remaining after cost:</span>
+                <span className={`font-semibold ${displayRemaining < 0 ? 'text-destructive' : 'text-primary'}`}>
+                  Rp {displayRemaining?.toLocaleString()}
                 </span>
               </div>
 
@@ -449,8 +481,8 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
         )}
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <div className="grid gap-4 md:grid-cols-2">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
               <FormField
                 control={form.control}
                 name="name"
@@ -489,6 +521,7 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
                     <Textarea
                       placeholder="Collection details, sources, etc."
                       {...field}
+                      className="resize-y min-h-24"
                     />
                   </FormControl>
                   <FormMessage />
@@ -497,13 +530,14 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
             />
 
             <div>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
                 <h3 className="text-lg font-medium">Operational Costs</h3>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={addOperationalCost}
+                  className="w-full sm:w-auto"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Cost
@@ -511,13 +545,13 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
               </div>
 
               {operational_costs.map((_, index) => (
-                <div key={index} className="flex gap-4 items-start mb-4">
+                <div key={index} className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-start mb-4">
                   <FormField
                     control={form.control}
                     name={`operational_costs.${index}.name`}
                     render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormLabel>Cost Name</FormLabel>
+                      <FormItem className="flex-1 w-full">
+                        <FormLabel className="sm:sr-only">Cost Name</FormLabel>
                         <FormControl>
                           <Input placeholder="Transportation" {...field} />
                         </FormControl>
@@ -527,10 +561,34 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
                   />
                   <FormField
                     control={form.control}
+                    name={`operational_costs.${index}.category`}
+                    render={({ field }) => (
+                      <FormItem className="flex-1 w-full">
+                        <FormLabel className="sm:sr-only">Category</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {COST_CATEGORIES.map((category) => (
+                              <SelectItem key={category} value={category}>
+                                {category.charAt(0).toUpperCase() + category.slice(1)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
                     name={`operational_costs.${index}.amount`}
                     render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormLabel>Amount (Rp)</FormLabel>
+                      <FormItem className="flex-1 w-full">
+                        <FormLabel className="sm:sr-only">Amount (Rp)</FormLabel>
                         <FormControl>
                           <Input type="number" placeholder="50000" {...field} />
                         </FormControl>
@@ -543,7 +601,7 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="mt-8"
+                      className="self-center mt-0 sm:mt-0"
                       onClick={() => removeOperationalCost(index)}
                     >
                       <X className="h-4 w-4" />
@@ -554,13 +612,14 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
                 <h3 className="text-lg font-medium">Items</h3>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={addItem}
+                  className="w-full sm:w-auto"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Item
@@ -568,7 +627,7 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
               </div>
 
               {items.map((_, index) => (
-                <div key={index} className="p-4 border rounded-md mb-4">
+                <div key={index} className="p-3 sm:p-4 border rounded-md mb-4">
                   <div className="flex justify-between items-center mb-2">
                     <h4 className="text-sm font-medium">Item #{index + 1}</h4>
                     {index > 0 && (
@@ -582,7 +641,7 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
                       </Button>
                     )}
                   </div>
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                     <FormField
                       control={form.control}
                       name={`items.${index}.name`}
@@ -642,7 +701,7 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
                         <FormItem className="col-span-2">
                           <FormLabel>Item Image</FormLabel>
                           <FormControl>
-                            <div className="flex items-center gap-4">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
                               <Input
                                 type="file"
                                 accept="image/*"
@@ -652,6 +711,7 @@ export function BatchForm({ mode = "create", initialData }: BatchFormProps) {
                                     onChange(file)
                                   }
                                 }}
+                                className="flex-1 w-full"
                                 {...field}
                               />
                               {value && (

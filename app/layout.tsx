@@ -3,7 +3,8 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from '@/components/providers/auth-provider';
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "@/components/ui/sonner";
+import { DashboardLayout } from '@/components/layout/dashboard-layout';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -27,7 +28,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            {children}
+            <DashboardLayout>
+              {children}
+            </DashboardLayout>
             <Toaster />
           </AuthProvider>
         </ThemeProvider>

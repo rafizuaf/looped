@@ -20,6 +20,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/utils"
 import { createClient } from "@/utils/supabase/client"
+import { LoadingIndicator } from "@/components/ui/loading-indicator"
 
 interface Batch {
   id: string;
@@ -125,10 +126,10 @@ function ItemsContent() {
     // Calculate operational cost per item
     const operationalCosts = batch.operational_costs.reduce((sum, cost) => sum + cost.amount, 0);
     const operationalCostPerItem = operationalCosts / batch.total_items;
-    
+
     // Calculate total cost including operational costs
     const totalCost = item.purchase_price + operationalCostPerItem;
-    
+
     // Calculate margin
     const marginValue = item.sold_status === 'sold' ? item.selling_price - totalCost : 0;
     const marginPercentage = item.sold_status === 'sold' ? (marginValue / totalCost) * 100 : 0;
@@ -193,14 +194,12 @@ function ItemsContent() {
 
   if (isLoading) {
     return (
-      <DashboardLayout>
-        <div>Loading...</div>
-      </DashboardLayout>
+      <LoadingIndicator fullPage />
     )
   }
 
   return (
-    <DashboardLayout>
+    <>
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold">
           {batchFilter !== "all" ? `Items in Batch ${batches.find(b => b.id === batchFilter)?.name || batchFilter}` : "All Items"}
@@ -250,8 +249,8 @@ function ItemsContent() {
 
         <Button variant="outline" asChild>
           <Link href="/items/new">
-          <Plus className="2-4 h-4 mr-2" />
-          New Item
+            <Plus className="2-4 h-4 mr-2" />
+            New Item
           </Link>
         </Button>
       </div>
@@ -373,11 +372,10 @@ function ItemsContent() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className={`px-2 py-1 rounded-full text-xs font-medium w-fit ${
-                            item.sold_status === "sold"
-                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
-                              : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
-                          }`}>
+                          <div className={`px-2 py-1 rounded-full text-xs font-medium w-fit ${item.sold_status === "sold"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                            : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
+                            }`}>
                             {item.sold_status === "sold" ? "Sold" : "Unsold"}
                           </div>
                         </TableCell>
@@ -404,18 +402,14 @@ function ItemsContent() {
           </div>
         </CardContent>
       </Card>
-    </DashboardLayout>
+    </>
   )
 }
 
 export default function ItemsPage() {
   return (
     <Suspense fallback={
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-[50vh]">
-          <p>Loading items...</p>
-        </div>
-      </DashboardLayout>
+      <LoadingIndicator fullPage />
     }>
       <ItemsContent />
     </Suspense>

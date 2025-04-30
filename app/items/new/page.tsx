@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { toast } from "sonner"
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
@@ -18,7 +19,6 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { toast } from "sonner"
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required" }),
@@ -75,7 +75,7 @@ export default function NewItemPage() {
   }
 
   return (
-    <DashboardLayout>
+    <>
       <div className="flex flex-col gap-2 mb-6">
         <h1 className="text-3xl font-bold">New Item</h1>
         <p className="text-muted-foreground">
@@ -179,6 +179,6 @@ export default function NewItemPage() {
           </Form>
         </CardContent>
       </Card>
-    </DashboardLayout>
+    </>
   )
 }

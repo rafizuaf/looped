@@ -19,7 +19,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
 import { signup } from "@/app/auth/login/action";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const signupSchema = z.object({
     email: z.string().email({
@@ -34,7 +34,6 @@ export function SignupForm() {
     const router = useRouter();
     const [error, setError] = React.useState<string | null>(null);
     const [isLoading, setIsLoading] = React.useState(false);
-    const { toast } = useToast();
 
     const form = useForm<z.infer<typeof signupSchema>>({
         resolver: zodResolver(signupSchema),
@@ -45,25 +44,16 @@ export function SignupForm() {
     });
 
     async function onSubmit(values: z.infer<typeof signupSchema>) {
-        setIsLoading(true);
-        setError(null);
-
         try {
+            setIsLoading(true);
+
             await signup(values);
-            toast({
-                title: "Account created",
-                description: "Please check your email to verify your account.",
-                variant: "success",
-            });
-            router.push("/auth/verify");
+            toast.success("Account created successfully");
+            router.push("/auth/login");
         } catch (error: any) {
             console.error("Error signing up:", error);
-            setError(error.message || "Failed to create account. Please try again.");
-            toast({
-                title: "Signup failed",
-                description: error.message || "Failed to create account. Please try again.",
-                variant: "destructive",
-            });
+            setError(error.message || "Failed to create account");
+            toast.error(error.message || "Failed to create account");
         } finally {
             setIsLoading(false);
         }

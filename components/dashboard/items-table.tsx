@@ -37,23 +37,6 @@ interface Batch {
   }[];
 }
 
-interface Item {
-  id: string
-  name: string
-  category: string
-  purchase_price: number
-  selling_price: number
-  margin_percentage: number
-  margin_value: number
-  sold_status: string
-  total_cost: number
-  image_url: string | null
-  created_at: string
-  updated_at: string
-  user_id: string
-  batch_id: string
-}
-
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]

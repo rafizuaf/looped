@@ -1,19 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { 
-  LineChart, 
-  Line, 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer, 
-  PieChart, 
-  Pie, 
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
   Cell
 } from "recharts"
 import { useTheme } from "next-themes"
@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/utils"
 import { TimeRange } from "@/types"
+import { LoadingIndicator } from "@/components/ui/loading-indicator"
 
 interface Batch {
   id: string;
@@ -60,7 +61,7 @@ export default function ReportsPage() {
     async function fetchData() {
       try {
         const supabase = createClient();
-        
+
         // Fetch batches with their items and operational costs
         const { data: batchesData, error: batchesError } = await supabase
           .from("batches")
@@ -114,10 +115,10 @@ export default function ReportsPage() {
   const statusData = batches.reduce((acc, batch) => {
     const soldCount = batch.items.filter(item => item.sold_status === "sold").length;
     const unsoldCount = batch.items.filter(item => item.sold_status === "unsold").length;
-    
+
     acc[0].value += soldCount;
     acc[1].value += unsoldCount;
-    
+
     return acc;
   }, [
     { name: "Sold", value: 0 },
@@ -127,22 +128,22 @@ export default function ReportsPage() {
   // Financial data for charts
   const financialData = batches.reduce((acc: { [key: string]: FinancialData }, batch) => {
     const date = new Date(batch.purchase_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    
+
     // Calculate revenue and costs for sold items
     const soldItems = batch.items.filter(item => item.sold_status === 'sold');
     const unsoldItems = batch.items.filter(item => item.sold_status === 'unsold');
-    
+
     // Calculate actual revenue from sold items
     const income = soldItems.reduce((sum, item) => sum + item.selling_price, 0);
-    
+
     // Calculate costs for both sold and unsold items
     const soldCosts = soldItems.reduce((sum, item) => sum + item.purchase_price, 0);
     const unsoldCosts = unsoldItems.reduce((sum, item) => sum + item.purchase_price, 0);
-    
+
     // Calculate operational costs
     const operationalCosts = batch.operational_costs.reduce((sum, cost) => sum + cost.amount, 0);
     const operationalCostPerItem = operationalCosts / batch.total_items;
-    
+
     // Add operational costs to both sold and unsold items
     const totalSoldCosts = soldCosts + (operationalCostPerItem * soldItems.length);
     const totalUnsoldCosts = unsoldCosts + (operationalCostPerItem * unsoldItems.length);
@@ -181,21 +182,19 @@ export default function ReportsPage() {
 
   if (isLoading) {
     return (
-      <DashboardLayout>
-        <div>Loading...</div>
-      </DashboardLayout>
+      <LoadingIndicator fullPage />
     );
   }
 
   return (
-    <DashboardLayout>
+    <>
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold">Financial Reports</h1>
         <p className="text-muted-foreground">
           Analyze your thrift shop financial performance
         </p>
       </div>
-      
+
       <div className="flex justify-end mt-6">
         <Select
           value={timeRange}
@@ -212,14 +211,14 @@ export default function ReportsPage() {
           </SelectContent>
         </Select>
       </div>
-      
+
       <Tabs defaultValue="overview" className="mt-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="profitability">Profitability</TabsTrigger>
           <TabsTrigger value="distribution">Distribution</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="overview" className="mt-4">
           <Card>
             <CardHeader>
@@ -241,11 +240,11 @@ export default function ReportsPage() {
                     }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#333" : "#eee"} />
-                    <XAxis 
-                      dataKey="date" 
+                    <XAxis
+                      dataKey="date"
                       stroke={isDark ? "#888" : "#888"}
                     />
-                    <YAxis 
+                    <YAxis
                       stroke={isDark ? "#888" : "#888"}
                       tickFormatter={(value) => `${value / 1000}K`}
                     />
@@ -279,7 +278,7 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="profitability" className="mt-4 space-y-4">
           <Card>
             <CardHeader>
@@ -302,7 +301,7 @@ export default function ReportsPage() {
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#333" : "#eee"} />
                     <XAxis dataKey="name" stroke={isDark ? "#888" : "#888"} />
-                    <YAxis 
+                    <YAxis
                       stroke={isDark ? "#888" : "#888"}
                       tickFormatter={(value) => `${value / 1000}K`}
                     />
@@ -319,9 +318,9 @@ export default function ReportsPage() {
                     <Legend />
                     <Bar dataKey="profit" name="Profit" radius={[4, 4, 0, 0]}>
                       {profitabilityData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={entry.profit >= 0 ? PROFIT_COLORS.positive : PROFIT_COLORS.negative} 
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.profit >= 0 ? PROFIT_COLORS.positive : PROFIT_COLORS.negative}
                         />
                       ))}
                     </Bar>
@@ -332,7 +331,7 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="distribution" className="mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
@@ -372,7 +371,7 @@ export default function ReportsPage() {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader>
                 <CardTitle>Items by Status</CardTitle>
@@ -413,6 +412,6 @@ export default function ReportsPage() {
           </div>
         </TabsContent>
       </Tabs>
-    </DashboardLayout>
+    </>
   )
 }

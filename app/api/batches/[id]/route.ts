@@ -10,18 +10,20 @@ export async function GET(request: Request, { params }: { params: { id: string }
     
     if (sessionError) {
       console.error('Session error:', sessionError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Session error' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Session error',
+        data: null
+      }, { status: 401 })
     }
 
     if (!session) {
       console.error('No session found')
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'No active session' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'No active session',
+        data: null
+      }, { status: 401 })
     }
 
     // Now get the user from the session
@@ -29,10 +31,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     if (userError || !user) {
       console.error('User error:', userError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to access batch details' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'You must be logged in to access batch details',
+        data: null
+      }, { status: 401 })
     }
 
     const { data: batch, error } = await supabase
@@ -46,12 +49,24 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .single()
 
     if (error) throw error
-    if (!batch) return NextResponse.json({ error: "Batch not found" }, { status: 404 })
+    if (!batch) return NextResponse.json({
+      status: 'error',
+      message: 'Batch not found',
+      data: null
+    }, { status: 404 })
 
-    return NextResponse.json(batch)
+    return NextResponse.json({
+      status: 'success',
+      message: 'Batch retrieved successfully',
+      data: batch
+    })
   } catch (error: any) {
     console.error("Error fetching batch:", error)
-    return NextResponse.json({ error: "Error fetching batch", message: error.message }, { status: 500 })
+    return NextResponse.json({
+      status: 'error',
+      message: error.message || 'Error fetching batch',
+      data: null
+    }, { status: 500 })
   }
 }
 
@@ -65,18 +80,20 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     
     if (sessionError) {
       console.error('Session error:', sessionError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Session error' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Session error',
+        data: null
+      }, { status: 401 })
     }
 
     if (!session) {
       console.error('No session found')
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'No active session' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'No active session',
+        data: null
+      }, { status: 401 })
     }
 
     // Now get the user from the session
@@ -84,18 +101,20 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
     if (userError || !user) {
       console.error('User error:', userError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to update batches' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'You must be logged in to update batches',
+        data: null
+      }, { status: 401 })
     }
 
     // Validate required fields
     if (!json.name || !json.purchase_date) {
-      return NextResponse.json(
-        { error: "Missing required fields", message: "Name and purchase date are required" },
-        { status: 400 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Name and purchase date are required',
+        data: null
+      }, { status: 400 })
     }
 
     // Start a transaction
@@ -117,16 +136,18 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
     if (batchError) {
       console.error("Error updating batch:", batchError)
-      return NextResponse.json(
-        { error: "Failed to update batch", message: batchError.message },
-        { status: 500 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: batchError.message || 'Failed to update batch',
+        data: null
+      }, { status: 500 })
     }
     if (!batch) {
-      return NextResponse.json(
-        { error: "Batch not found" },
-        { status: 404 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Batch not found',
+        data: null
+      }, { status: 404 })
     }
 
     // Update items
@@ -134,10 +155,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       for (const item of json.items) {
         // Validate item data
         if (!item.name || !item.category || !item.purchase_price || !item.selling_price) {
-          return NextResponse.json(
-            { error: "Item name, category, purchase price, and selling price are required" },
-            { status: 400 }
-          )
+          return NextResponse.json({
+            status: 'error',
+            message: 'Item name, category, purchase price, and selling price are required',
+            data: null
+          }, { status: 400 })
         }
 
         const { error: itemError } = await supabase
@@ -154,10 +176,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
         if (itemError) {
           console.error("Error updating item:", itemError)
-          return NextResponse.json(
-            { error: "Failed to update item", message: itemError.message },
-            { status: 500 }
-          )
+          return NextResponse.json({
+            status: 'error',
+            message: itemError.message || 'Failed to update item',
+            data: null
+          }, { status: 500 })
         }
       }
     }
@@ -167,10 +190,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       for (const cost of json.operational_costs) {
         // Validate cost data
         if (!cost.name || !cost.amount) {
-          return NextResponse.json(
-            { error: "Cost name and amount are required" },
-            { status: 400 }
-          )
+          return NextResponse.json({
+            status: 'error',
+            message: 'Cost name and amount are required',
+            data: null
+          }, { status: 400 })
         }
 
         const { error: costError } = await supabase
@@ -184,10 +208,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
         if (costError) {
           console.error("Error updating operational cost:", costError)
-          return NextResponse.json(
-            { error: "Failed to update operational cost", message: costError.message },
-            { status: 500 }
-          )
+          return NextResponse.json({
+            status: 'error',
+            message: costError.message || 'Failed to update operational cost',
+            data: null
+          }, { status: 500 })
         }
       }
     }
@@ -205,19 +230,25 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
     if (fetchError) {
       console.error("Error fetching updated batch:", fetchError)
-      return NextResponse.json(
-        { error: "Failed to fetch updated batch", message: fetchError.message },
-        { status: 500 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: fetchError.message || 'Failed to fetch updated batch',
+        data: null
+      }, { status: 500 })
     }
 
-    return NextResponse.json(updatedBatch)
+    return NextResponse.json({
+      status: 'success',
+      message: 'Batch updated successfully',
+      data: updatedBatch
+    })
   } catch (error: any) {
     console.error("Error in batch update:", error)
-    return NextResponse.json(
-      { error: "An unexpected error occurred", message: error.message },
-      { status: 500 }
-    )
+    return NextResponse.json({
+      status: 'error',
+      message: error.message || 'An unexpected error occurred',
+      data: null
+    }, { status: 500 })
   }
 }
 
@@ -230,18 +261,20 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     
     if (sessionError) {
       console.error('Session error:', sessionError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Session error' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Session error',
+        data: null
+      }, { status: 401 })
     }
 
     if (!session) {
       console.error('No session found')
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'No active session' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'No active session',
+        data: null
+      }, { status: 401 })
     }
 
     // Now get the user from the session
@@ -249,10 +282,11 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
     if (userError || !user) {
       console.error('User error:', userError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to delete batches' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'You must be logged in to delete batches',
+        data: null
+      }, { status: 401 })
     }
 
     // Start a transaction to soft delete batch and related data
@@ -263,24 +297,31 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
     if (error) {
       console.error("Error deleting batch:", error)
-      return NextResponse.json(
-        { error: "Failed to delete batch", message: error.message },
-        { status: 500 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: error.message || 'Failed to delete batch',
+        data: null
+      }, { status: 500 })
     }
     if (!batch) {
-      return NextResponse.json(
-        { error: "Batch not found" },
-        { status: 404 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Batch not found',
+        data: null
+      }, { status: 404 })
     }
 
-    return NextResponse.json(batch)
+    return NextResponse.json({
+      status: 'success',
+      message: 'Batch deleted successfully',
+      data: batch
+    })
   } catch (error: any) {
     console.error("Error in batch deletion:", error)
-    return NextResponse.json(
-      { error: "An unexpected error occurred", message: error.message },
-      { status: 500 }
-    )
+    return NextResponse.json({
+      status: 'error',
+      message: error.message || 'An unexpected error occurred',
+      data: null
+    }, { status: 500 })
   }
 }

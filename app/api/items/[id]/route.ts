@@ -10,18 +10,20 @@ export async function GET(request: Request, { params }: { params: { id: string }
     
     if (sessionError) {
       console.error('Session error:', sessionError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Session error' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Session error',
+        data: null
+      }, { status: 401 })
     }
 
     if (!session) {
       console.error('No session found')
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'No active session' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'No active session',
+        data: null
+      }, { status: 401 })
     }
 
     // Now get the user from the session
@@ -29,10 +31,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     if (userError || !user) {
       console.error('User error:', userError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to access item details' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'You must be logged in to access item details',
+        data: null
+      }, { status: 401 })
     }
 
     const { data: item, error } = await supabase
@@ -43,12 +46,24 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .single()
 
     if (error) throw error
-    if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 })
+    if (!item) return NextResponse.json({
+      status: 'error',
+      message: 'Item not found',
+      data: null
+    }, { status: 404 })
 
-    return NextResponse.json(item)
+    return NextResponse.json({
+      status: 'success',
+      message: 'Item retrieved successfully',
+      data: item
+    })
   } catch (error: any) {
     console.error("Error fetching item:", error)
-    return NextResponse.json({ error: "Error fetching item", message: error.message }, { status: 500 })
+    return NextResponse.json({
+      status: 'error',
+      message: error.message || 'Error fetching item',
+      data: null
+    }, { status: 500 })
   }
 }
 
@@ -62,18 +77,20 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     
     if (sessionError) {
       console.error('Session error:', sessionError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Session error' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Session error',
+        data: null
+      }, { status: 401 })
     }
 
     if (!session) {
       console.error('No session found')
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'No active session' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'No active session',
+        data: null
+      }, { status: 401 })
     }
 
     // Now get the user from the session
@@ -81,10 +98,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
     if (userError || !user) {
       console.error('User error:', userError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to update items' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'You must be logged in to update items',
+        data: null
+      }, { status: 401 })
     }
 
     // Extract all form data
@@ -101,22 +119,51 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     // Get the current item to get batch_id and user_id
     const { data: currentItem, error: fetchError } = await supabase
       .from("items")
-      .select("batch_id, user_id")
+      .select("batch_id, user_id, sold_status")
       .eq("id", params.id)
       .single()
 
     if (fetchError) throw fetchError
-    if (!currentItem) return NextResponse.json({ error: "Item not found" }, { status: 404 })
+    if (!currentItem) return NextResponse.json({
+      status: 'error',
+      message: 'Item not found',
+      data: null
+    }, { status: 404 })
 
     // Validate required fields
     if (!name || !category || !purchase_price || !selling_price) {
-      return NextResponse.json(
-        { error: "Missing required fields", message: "Name, category, purchase price, and selling price are required" },
-        { status: 400 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Name, category, purchase price, and selling price are required',
+        data: null
+      }, { status: 400 })
     }
 
-    // Start a transaction
+    // If the item is being marked as unsold and was previously sold
+    if (sold_status === 'unsold' && currentItem.sold_status === 'sold') {
+      const { data: reversalResult, error: reversalError } = await supabase
+        .rpc('register_item_sale_reversal', {
+          p_item_id: params.id,
+          p_user_id: user.id
+        })
+
+      if (reversalError) {
+        console.error("Error reversing item sale:", reversalError)
+        return NextResponse.json({
+          status: 'error',
+          message: reversalError.message || 'Error reversing item sale',
+          data: null
+        }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        status: 'success',
+        message: 'Item updated and sale reversed successfully',
+        data: reversalResult
+      })
+    }
+
+    // For other updates, use the existing update_item_with_transaction function
     const { data: item, error } = await supabase.rpc('update_item_with_transaction', {
       p_id: params.id,
       p_batch_id: currentItem.batch_id,
@@ -136,19 +183,33 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     if (error) {
       if (error.message.includes("Insufficient budget")) {
         return NextResponse.json({
-          error: error.message,
-          type: "INSUFFICIENT_BUDGET"
+          status: 'error',
+          message: error.message,
+          type: "INSUFFICIENT_BUDGET",
+          data: null
         }, { status: 400 })
       }
       throw error
     }
 
-    if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 })
+    if (!item) return NextResponse.json({
+      status: 'error',
+      message: 'Item not found',
+      data: null
+    }, { status: 404 })
 
-    return NextResponse.json(item)
+    return NextResponse.json({
+      status: 'success',
+      message: 'Item updated successfully',
+      data: item
+    })
   } catch (error: any) {
     console.error("Error updating item:", error)
-    return NextResponse.json({ error: "Error updating item", message: error.message }, { status: 500 })
+    return NextResponse.json({
+      status: 'error',
+      message: error.message || 'Error updating item',
+      data: null
+    }, { status: 500 })
   }
 }
 
@@ -161,18 +222,20 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     
     if (sessionError) {
       console.error('Session error:', sessionError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Session error' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Session error',
+        data: null
+      }, { status: 401 })
     }
 
     if (!session) {
       console.error('No session found')
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'No active session' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'No active session',
+        data: null
+      }, { status: 401 })
     }
 
     // Now get the user from the session
@@ -180,10 +243,11 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
     if (userError || !user) {
       console.error('User error:', userError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to delete items' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'You must be logged in to delete items',
+        data: null
+      }, { status: 401 })
     }
 
     const { data: item, error } = await supabase
@@ -194,11 +258,23 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       .single()
 
     if (error) throw error
-    if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 })
+    if (!item) return NextResponse.json({
+      status: 'error',
+      message: 'Item not found',
+      data: null
+    }, { status: 404 })
 
-    return NextResponse.json(item)
+    return NextResponse.json({
+      status: 'success',
+      message: 'Item deleted successfully',
+      data: item
+    })
   } catch (error: any) {
     console.error("Error deleting item:", error)
-    return NextResponse.json({ error: "Error deleting item", message: error.message }, { status: 500 })
+    return NextResponse.json({
+      status: 'error',
+      message: error.message || 'Error deleting item',
+      data: null
+    }, { status: 500 })
   }
 }

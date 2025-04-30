@@ -5,8 +5,8 @@ import { notFound } from "next/navigation"
 import { BatchForm } from "@/components/forms/batch-form"
 import { createClient } from "@/utils/supabase/client"
 import { useAuth } from "@/components/providers/auth-provider"
-import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { toast } from "sonner"
+import { LoadingIndicator } from "@/components/ui/loading-indicator"
 
 interface Batch {
   id: string
@@ -44,6 +44,7 @@ interface OperationalCost {
   name: string
   amount: number
   date: string
+  category: string
   created_at: string
   user_id: string
   batch_id: string
@@ -83,7 +84,7 @@ export default function EditBatchPage({ params }: { params: { id: string } }) {
           .select("*")
           .eq("batch_id", params.id)
           .is("deleted_at", null)
-          .order("created_at", { ascending: false })
+          .order("created_at", { ascending: true })
 
         if (itemsError) throw itemsError
         setItems(itemsData || [])
@@ -94,7 +95,7 @@ export default function EditBatchPage({ params }: { params: { id: string } }) {
           .select("*")
           .eq("batch_id", params.id)
           .is("deleted_at", null)
-          .order("created_at", { ascending: false })
+          .order("created_at", { ascending: true })
 
         if (costsError) throw costsError
         setOperationalCosts(costsData || [])
@@ -111,11 +112,7 @@ export default function EditBatchPage({ params }: { params: { id: string } }) {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-[50vh]">
-          <p>Loading batch data...</p>
-        </div>
-      </DashboardLayout>
+      <LoadingIndicator fullPage />
     )
   }
 
@@ -124,29 +121,28 @@ export default function EditBatchPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <DashboardLayout>
-      <div className="container py-6">
-        <BatchForm
-          mode="edit"
-          initialData={{
-            ...batch,
-            items: items.map(item => ({
-              id: item.id,
-              name: item.name,
-              category: item.category,
-              purchase_price: item.purchase_price.toString(),
-              selling_price: item.selling_price.toString(),
-              sold_status: item.sold_status,
-              image: null
-            })),
-            operational_costs: operationalCosts.map(cost => ({
-              id: cost.id,
-              name: cost.name,
-              amount: cost.amount.toString()
-            }))
-          }}
-        />
-      </div>
-    </DashboardLayout>
+    <div className="container py-6">
+      <BatchForm
+        mode="edit"
+        initialData={{
+          ...batch,
+          items: items.map(item => ({
+            id: item.id,
+            name: item.name,
+            category: item.category,
+            purchase_price: item.purchase_price.toString(),
+            selling_price: item.selling_price.toString(),
+            sold_status: item.sold_status,
+            image: null
+          })),
+          operational_costs: operationalCosts.map(cost => ({
+            id: cost.id,
+            name: cost.name,
+            amount: cost.amount.toString(),
+            category: cost.category || "general"
+          }))
+        }}
+      />
+    </div>
   )
 } 

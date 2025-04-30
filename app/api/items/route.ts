@@ -12,18 +12,20 @@ export async function GET(request: Request) {
     
     if (sessionError) {
       console.error('Session error:', sessionError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Session error' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Session error',
+        data: null
+      }, { status: 401 })
     }
 
     if (!session) {
       console.error('No session found')
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'No active session' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'No active session',
+        data: null
+      }, { status: 401 })
     }
 
     // Now get the user from the session
@@ -31,10 +33,11 @@ export async function GET(request: Request) {
 
     if (userError || !user) {
       console.error('User error:', userError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to access items' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'You must be logged in to access items',
+        data: null
+      }, { status: 401 })
     }
 
     let query = supabase
@@ -51,10 +54,18 @@ export async function GET(request: Request) {
 
     if (error) throw error
 
-    return NextResponse.json(items)
+    return NextResponse.json({
+      status: 'success',
+      message: 'Items retrieved successfully',
+      data: items
+    })
   } catch (error: any) {
     console.error("Error fetching items:", error)
-    return NextResponse.json({ error: "Error fetching items", message: error.message }, { status: 500 })
+    return NextResponse.json({
+      status: 'error',
+      message: error.message || 'Error fetching items',
+      data: null
+    }, { status: 500 })
   }
 }
 
@@ -68,18 +79,20 @@ export async function POST(request: Request) {
     
     if (sessionError) {
       console.error('Session error:', sessionError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Session error' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Session error',
+        data: null
+      }, { status: 401 })
     }
 
     if (!session) {
       console.error('No session found')
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'No active session' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'No active session',
+        data: null
+      }, { status: 401 })
     }
 
     // Now get the user from the session
@@ -87,10 +100,11 @@ export async function POST(request: Request) {
 
     if (userError || !user) {
       console.error('User error:', userError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to create items' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'You must be logged in to create items',
+        data: null
+      }, { status: 401 })
     }
 
     // Extract all form data
@@ -107,10 +121,11 @@ export async function POST(request: Request) {
 
     // Validate required fields
     if (!batch_id || !name || !category || !purchase_price || !selling_price) {
-      return NextResponse.json(
-        { error: "Missing required fields", message: "Batch ID, name, category, purchase price, and selling price are required" },
-        { status: 400 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Batch ID, name, category, purchase price, and selling price are required',
+        data: null
+      }, { status: 400 })
     }
 
     // Start a transaction
@@ -132,17 +147,27 @@ export async function POST(request: Request) {
     if (error) {
       if (error.message.includes("Insufficient budget")) {
         return NextResponse.json({
-          error: error.message,
-          type: "INSUFFICIENT_BUDGET"
+          status: 'error',
+          message: error.message,
+          type: "INSUFFICIENT_BUDGET",
+          data: null
         }, { status: 400 })
       }
       throw error
     }
 
-    return NextResponse.json(item)
+    return NextResponse.json({
+      status: 'success',
+      message: 'Item created successfully',
+      data: item
+    })
   } catch (error: any) {
     console.error("Error creating item:", error)
-    return NextResponse.json({ error: "Error creating item", message: error.message }, { status: 500 })
+    return NextResponse.json({
+      status: 'error',
+      message: error.message || 'Error creating item',
+      data: null
+    }, { status: 500 })
   }
 }
 
@@ -156,18 +181,20 @@ export async function PUT(request: Request) {
     
     if (sessionError) {
       console.error('Session error:', sessionError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Session error' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Session error',
+        data: null
+      }, { status: 401 })
     }
 
     if (!session) {
       console.error('No session found')
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'No active session' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'No active session',
+        data: null
+      }, { status: 401 })
     }
 
     // Now get the user from the session
@@ -175,10 +202,11 @@ export async function PUT(request: Request) {
 
     if (userError || !user) {
       console.error('User error:', userError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to update items' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'You must be logged in to update items',
+        data: null
+      }, { status: 401 })
     }
 
     // Extract all form data
@@ -196,10 +224,11 @@ export async function PUT(request: Request) {
 
     // Validate required fields
     if (!id || !batch_id || !name || !category || !purchase_price || !selling_price) {
-      return NextResponse.json(
-        { error: "Missing required fields", message: "ID, batch ID, name, category, purchase price, and selling price are required" },
-        { status: 400 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'ID, batch ID, name, category, purchase price, and selling price are required',
+        data: null
+      }, { status: 400 })
     }
 
     // Start a transaction
@@ -222,17 +251,27 @@ export async function PUT(request: Request) {
     if (error) {
       if (error.message.includes("Insufficient budget")) {
         return NextResponse.json({
-          error: error.message,
-          type: "INSUFFICIENT_BUDGET"
+          status: 'error',
+          message: error.message,
+          type: "INSUFFICIENT_BUDGET",
+          data: null
         }, { status: 400 })
       }
       throw error
     }
 
-    return NextResponse.json(item)
+    return NextResponse.json({
+      status: 'success',
+      message: 'Item updated successfully',
+      data: item
+    })
   } catch (error: any) {
     console.error("Error updating item:", error)
-    return NextResponse.json({ error: "Error updating item", message: error.message }, { status: 500 })
+    return NextResponse.json({
+      status: 'error',
+      message: error.message || 'Error updating item',
+      data: null
+    }, { status: 500 })
   }
 }
 
@@ -247,18 +286,20 @@ export async function DELETE(request: Request) {
     
     if (sessionError) {
       console.error('Session error:', sessionError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Session error' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'Session error',
+        data: null
+      }, { status: 401 })
     }
 
     if (!session) {
       console.error('No session found')
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'No active session' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'No active session',
+        data: null
+      }, { status: 401 })
     }
 
     // Now get the user from the session
@@ -266,14 +307,19 @@ export async function DELETE(request: Request) {
 
     if (userError || !user) {
       console.error('User error:', userError)
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'You must be logged in to delete items' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        status: 'error',
+        message: 'You must be logged in to delete items',
+        data: null
+      }, { status: 401 })
     }
 
     if (!id) {
-      return NextResponse.json({ error: "ID is required" }, { status: 400 })
+      return NextResponse.json({
+        status: 'error',
+        message: 'ID is required',
+        data: null
+      }, { status: 400 })
     }
 
     const { data: item, error } = await supabase
@@ -285,9 +331,17 @@ export async function DELETE(request: Request) {
 
     if (error) throw error
 
-    return NextResponse.json(item)
+    return NextResponse.json({
+      status: 'success',
+      message: 'Item deleted successfully',
+      data: item
+    })
   } catch (error: any) {
     console.error("Error deleting item:", error)
-    return NextResponse.json({ error: "Error deleting item", message: error.message }, { status: 500 })
+    return NextResponse.json({
+      status: 'error',
+      message: error.message || 'Error deleting item',
+      data: null
+    }, { status: 500 })
   }
 }

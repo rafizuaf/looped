@@ -16,18 +16,20 @@ export async function GET(request: Request) {
         
         if (sessionError) {
             console.error('Session error:', sessionError)
-            return NextResponse.json(
-                { error: 'Unauthorized', message: 'Session error' },
-                { status: 401 }
-            )
+            return NextResponse.json({
+                status: 'error',
+                message: 'Session error',
+                data: null
+            }, { status: 401 })
         }
 
         if (!session) {
             console.error('No session found')
-            return NextResponse.json(
-                { error: 'Unauthorized', message: 'No active session' },
-                { status: 401 }
-            )
+            return NextResponse.json({
+                status: 'error',
+                message: 'No active session',
+                data: null
+            }, { status: 401 })
         }
 
         // Now get the user from the session
@@ -35,10 +37,11 @@ export async function GET(request: Request) {
 
         if (userError || !user) {
             console.error('User error:', userError)
-            return NextResponse.json(
-                { error: 'Unauthorized', message: 'You must be logged in to access your budget' },
-                { status: 401 }
-            )
+            return NextResponse.json({
+                status: 'error',
+                message: 'You must be logged in to access your budget',
+                data: null
+            }, { status: 401 })
         }
 
         // Get budget summary
@@ -64,15 +67,20 @@ export async function GET(request: Request) {
         }
 
         return NextResponse.json({
-            ...budgetSummary,
-            transactions
+            status: 'success',
+            message: 'Budget retrieved successfully',
+            data: {
+                ...budgetSummary,
+                transactions
+            }
         })
     } catch (error: any) {
         console.error("Error fetching budget:", error)
-        return NextResponse.json(
-            { error: "Error fetching budget", message: error.message },
-            { status: 500 }
-        )
+        return NextResponse.json({
+            status: 'error',
+            message: error.message || 'Error fetching budget',
+            data: null
+        }, { status: 500 })
     }
 }
 
@@ -90,18 +98,20 @@ export async function POST(request: Request) {
         
         if (sessionError) {
             console.error('Session error:', sessionError)
-            return NextResponse.json(
-                { error: 'Unauthorized', message: 'Session error' },
-                { status: 401 }
-            )
+            return NextResponse.json({
+                status: 'error',
+                message: 'Session error',
+                data: null
+            }, { status: 401 })
         }
 
         if (!session) {
             console.error('No session found')
-            return NextResponse.json(
-                { error: 'Unauthorized', message: 'No active session' },
-                { status: 401 }
-            )
+            return NextResponse.json({
+                status: 'error',
+                message: 'No active session',
+                data: null
+            }, { status: 401 })
         }
 
         // Now get the user from the session
@@ -109,26 +119,29 @@ export async function POST(request: Request) {
 
         if (userError || !user) {
             console.error('User error:', userError)
-            return NextResponse.json(
-                { error: 'Unauthorized', message: 'You must be logged in to manage your budget' },
-                { status: 401 }
-            )
+            return NextResponse.json({
+                status: 'error',
+                message: 'You must be logged in to manage your budget',
+                data: null
+            }, { status: 401 })
         }
 
         // Validate required fields
         if (!data.amount || typeof data.amount !== 'number') {
-            return NextResponse.json(
-                { error: "Invalid amount", message: "Amount must be a number" },
-                { status: 400 }
-            )
+            return NextResponse.json({
+                status: 'error',
+                message: 'Amount must be a number',
+                data: null
+            }, { status: 400 })
         }
 
         // Validate amount is not zero
         if (data.amount === 0) {
-            return NextResponse.json(
-                { error: "Invalid amount", message: "Amount cannot be zero" },
-                { status: 400 }
-            )
+            return NextResponse.json({
+                status: 'error',
+                message: 'Amount cannot be zero',
+                data: null
+            }, { status: 400 })
         }
 
         // Use the budget transaction function
@@ -146,20 +159,27 @@ export async function POST(request: Request) {
         if (error) {
             if (error.message.includes("Insufficient budget")) {
                 return NextResponse.json({
-                    error: error.message,
-                    type: "INSUFFICIENT_BUDGET"
+                    status: 'error',
+                    message: error.message,
+                    type: "INSUFFICIENT_BUDGET",
+                    data: null
                 }, { status: 400 })
             }
             throw error
         }
 
-        return NextResponse.json(result)
+        return NextResponse.json({
+            status: 'success',
+            message: 'Budget transaction created successfully',
+            data: result
+        })
     } catch (error: any) {
         console.error("Error managing budget:", error)
-        return NextResponse.json(
-            { error: "Error managing budget", message: error.message },
-            { status: 500 }
-        )
+        return NextResponse.json({
+            status: 'error',
+            message: error.message || 'Error managing budget',
+            data: null
+        }, { status: 500 })
     }
 }
 
@@ -175,18 +195,20 @@ export async function DELETE(request: Request) {
         
         if (sessionError) {
             console.error('Session error:', sessionError)
-            return NextResponse.json(
-                { error: 'Unauthorized', message: 'Session error' },
-                { status: 401 }
-            )
+            return NextResponse.json({
+                status: 'error',
+                message: 'Session error',
+                data: null
+            }, { status: 401 })
         }
 
         if (!session) {
             console.error('No session found')
-            return NextResponse.json(
-                { error: 'Unauthorized', message: 'No active session' },
-                { status: 401 }
-            )
+            return NextResponse.json({
+                status: 'error',
+                message: 'No active session',
+                data: null
+            }, { status: 401 })
         }
 
         // Now get the user from the session
@@ -194,17 +216,19 @@ export async function DELETE(request: Request) {
 
         if (userError || !user) {
             console.error('User error:', userError)
-            return NextResponse.json(
-                { error: 'Unauthorized', message: 'You must be logged in to manage your budget' },
-                { status: 401 }
-            )
+            return NextResponse.json({
+                status: 'error',
+                message: 'You must be logged in to manage your budget',
+                data: null
+            }, { status: 401 })
         }
 
         if (!transactionId) {
-            return NextResponse.json(
-                { error: "Missing transaction ID", message: "Transaction ID is required" },
-                { status: 400 }
-            )
+            return NextResponse.json({
+                status: 'error',
+                message: 'Transaction ID is required',
+                data: null
+            }, { status: 400 })
         }
 
         // Soft delete the transaction
@@ -218,12 +242,17 @@ export async function DELETE(request: Request) {
 
         if (error) throw error
 
-        return NextResponse.json(transaction)
+        return NextResponse.json({
+            status: 'success',
+            message: 'Budget transaction deleted successfully',
+            data: transaction
+        })
     } catch (error: any) {
         console.error("Error deleting budget transaction:", error)
-        return NextResponse.json(
-            { error: "Error deleting budget transaction", message: error.message },
-            { status: 500 }
-        )
+        return NextResponse.json({
+            status: 'error',
+            message: error.message || 'Error deleting budget transaction',
+            data: null
+        }, { status: 500 })
     }
 }

@@ -2,20 +2,19 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-
 import { createClient } from '@/utils/supabase/server'
 
 export async function login(data: { email: string; password: string }) {
     const supabase = await createClient()
 
-    const { error } = await supabase.auth.signInWithPassword(data)
+    const { error, data: authData } = await supabase.auth.signInWithPassword(data)
 
     if (error) {
         throw new Error(error.message)
     }
 
     revalidatePath('/', 'layout')
-    redirect('/dashboard')
+    return { success: true, session: authData.session }
 }
 
 export async function signup(data: { email: string; password: string }) {

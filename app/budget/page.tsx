@@ -12,12 +12,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format } from "date-fns"
+import { LoadingIndicator } from "@/components/ui/loading-indicator"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function BudgetPage() {
     const [budget, setBudget] = useState<any>(null)
-    const [isLoading, setIsLoading] = useState(true)
     const [topUpAmount, setTopUpAmount] = useState("")
     const [topUpDescription, setTopUpDescription] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -34,7 +34,6 @@ export default function BudgetPage() {
             }
 
             try {
-                setIsLoading(true)
                 const response = await fetch("/api/budget?includeTransactions=true", {
                     credentials: 'include',
                     headers: {
@@ -47,16 +46,18 @@ export default function BudgetPage() {
                     throw new Error(errorData.message || "Failed to fetch budget data")
                 }
 
-                const data = await response.json()
-                setBudget(data)
+                const result = await response.json()
+                if (result.status === 'success' && result.data) {
+                    setBudget(result.data)
+                } else {
+                    throw new Error(result.message || "Failed to fetch budget data")
+                }
             } catch (error: any) {
                 console.error("Error fetching budget:", error)
                 setError(error.message || "Failed to load budget information")
                 if (error.message.includes('Unauthorized')) {
                     router.push('/auth/login')
                 }
-            } finally {
-                setIsLoading(false)
             }
         }
 
@@ -83,7 +84,7 @@ export default function BudgetPage() {
             const response = await fetch("/api/budget", {
                 method: "POST",
                 credentials: 'include',
-                headers: { 
+                headers: {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
@@ -93,29 +94,33 @@ export default function BudgetPage() {
             })
 
             if (!response.ok) {
-                const data = await response.json()
-                throw new Error(data.message || "Failed to adjust budget")
+                const result = await response.json()
+                throw new Error(result.message || "Failed to adjust budget")
             }
 
             const result = await response.json()
 
-            // Update local budget state with the new values
-            setBudget({
-                ...budget,
-                current_budget: result.updated_budget,
-                statistics: {
-                    ...budget.statistics,
-                    total_top_ups: (parseFloat(budget.statistics?.total_top_ups || 0) + amount).toString(),
-                    top_up_count: (parseInt(budget.statistics?.top_up_count || 0) + 1).toString(),
-                },
-                transactions: [result.transaction, ...(budget.transactions || [])]
-            })
+            if (result.status === 'success' && result.data) {
+                // Update local budget state with the new values
+                setBudget({
+                    ...budget,
+                    current_budget: result.data.updated_budget,
+                    statistics: {
+                        ...budget.statistics,
+                        total_top_ups: (parseFloat(budget.statistics?.total_top_ups || 0) + amount).toString(),
+                        top_up_count: (parseInt(budget.statistics?.top_up_count || 0) + 1).toString(),
+                    },
+                    transactions: [result.data.transaction, ...(budget.transactions || [])]
+                })
 
-            // Reset form
-            setTopUpAmount("")
-            setTopUpDescription("")
+                // Reset form
+                setTopUpAmount("")
+                setTopUpDescription("")
 
-            toast.success("Budget adjusted successfully")
+                toast.success("Budget adjusted successfully")
+            } else {
+                throw new Error(result.message || "Failed to adjust budget")
+            }
         } catch (error: any) {
             console.error("Error adjusting budget:", error)
             setError(error.message || "Failed to adjust budget")
@@ -140,17 +145,22 @@ export default function BudgetPage() {
             })
 
             if (!response.ok) {
-                const data = await response.json()
-                throw new Error(data.message || "Failed to delete transaction")
+                const result = await response.json()
+                throw new Error(result.message || "Failed to delete transaction")
             }
 
-            // Update local state
-            setBudget({
-                ...budget,
-                transactions: budget.transactions.filter((t: any) => t.id !== transactionId)
-            })
+            const result = await response.json()
+            if (result.status === 'success' && result.data) {
+                // Update local state
+                setBudget({
+                    ...budget,
+                    transactions: budget.transactions.filter((t: any) => t.id !== transactionId)
+                })
 
-            toast.success("Transaction deleted successfully")
+                toast.success("Transaction deleted successfully")
+            } else {
+                throw new Error(result.message || "Failed to delete transaction")
+            }
         } catch (error: any) {
             console.error("Error deleting transaction:", error)
             toast.error("Failed to delete transaction")
@@ -158,21 +168,9 @@ export default function BudgetPage() {
     }
 
     // Loading state
-    if (authLoading || isLoading) {
+    if (authLoading) {
         return (
-            <DashboardLayout>
-                <div className="container py-10">
-                    <Card>
-                        <CardContent className="p-6">
-                            <Alert>
-                                <AlertDescription>
-                                    Loading your budget information...
-                                </AlertDescription>
-                            </Alert>
-                        </CardContent>
-                    </Card>
-                </div>
-            </DashboardLayout>
+            <LoadingIndicator fullPage />
         )
     }
 
@@ -200,7 +198,7 @@ export default function BudgetPage() {
     }
 
     return (
-        <DashboardLayout>
+        <>
             <div className="container py-10">
                 <h1 className="text-3xl font-bold mb-6">Budget Management</h1>
 
@@ -387,24 +385,23 @@ export default function BudgetPage() {
                                                 {format(new Date(transaction.created_at), 'PPp')}
                                             </TableCell>
                                             <TableCell>
-                                                <span className={`capitalize ${
-                                                    transaction.transaction_type === 'top_up' ? 'text-green-600' :
+                                                <span className={`capitalize ${transaction.transaction_type === 'top_up' ? 'text-green-600' :
                                                     transaction.transaction_type === 'batch_purchase' ? 'text-red-600' :
-                                                    transaction.transaction_type === 'operational_cost' ? 'text-orange-600' :
-                                                    transaction.transaction_type === 'item_sale' ? 'text-blue-600' :
-                                                    'text-gray-600'
-                                                }`}>
+                                                        transaction.transaction_type === 'operational_cost' ? 'text-orange-600' :
+                                                            transaction.transaction_type === 'item_sale' ? 'text-blue-600' :
+                                                                'text-gray-600'
+                                                    }`}>
                                                     {transaction.transaction_type.replace('_', ' ')}
                                                 </span>
                                             </TableCell>
                                             <TableCell>{transaction.description}</TableCell>
-                                            <TableCell className={`text-right ${
-                                                transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
-                                            }`}>
+                                            <TableCell className={`text-right ${transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
+                                                }`}>
                                                 Rp {Math.abs(transaction.amount).toLocaleString()}
                                             </TableCell>
                                             <TableCell>
                                                 <Button
+                                                    className="hover:bg-transparent hover:text-destructive transition-all duration-200"
                                                     variant="ghost"
                                                     size="icon"
                                                     onClick={() => handleDeleteTransaction(transaction.id)}
@@ -433,6 +430,6 @@ export default function BudgetPage() {
                     </Button>
                 </div>
             </div>
-        </DashboardLayout>
+        </>
     )
 }
