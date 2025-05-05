@@ -231,8 +231,8 @@ export async function PUT(request: Request) {
       }, { status: 400 })
     }
 
-    // Start a transaction
-    const { data: item, error } = await supabase.rpc('update_item_with_transaction', {
+    // Use the new update_item_with_transaction function
+    const { data: result, error } = await supabase.rpc('update_item_with_transaction', {
       p_id: id,
       p_batch_id: batch_id,
       p_name: name,
@@ -245,7 +245,7 @@ export async function PUT(request: Request) {
       p_total_cost: parseFloat(total_cost),
       p_user_id: user.id,
       p_image: image ? await image.arrayBuffer() : null,
-      p_image_name: image ? image.name : null
+      p_image_name: image ? `${Date.now()}-${image.name}` : null
     })
 
     if (error) {
@@ -263,7 +263,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({
       status: 'success',
       message: 'Item updated successfully',
-      data: item
+      data: result.item
     })
   } catch (error: any) {
     console.error("Error updating item:", error)

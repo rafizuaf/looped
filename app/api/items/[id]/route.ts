@@ -116,10 +116,10 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     const total_cost = formData.get("total_cost") as string
     const image = formData.get("image") as File
 
-    // Get the current item to get batch_id and user_id
+    // Get the current item to get batch_id
     const { data: currentItem, error: fetchError } = await supabase
       .from("items")
-      .select("batch_id, user_id, sold_status")
+      .select("batch_id")
       .eq("id", params.id)
       .single()
 
@@ -139,32 +139,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       }, { status: 400 })
     }
 
-    // If the item is being marked as unsold and was previously sold
-    if (sold_status === 'unsold' && currentItem.sold_status === 'sold') {
-      const { data: reversalResult, error: reversalError } = await supabase
-        .rpc('register_item_sale_reversal', {
-          p_item_id: params.id,
-          p_user_id: user.id
-        })
-
-      if (reversalError) {
-        console.error("Error reversing item sale:", reversalError)
-        return NextResponse.json({
-          status: 'error',
-          message: reversalError.message || 'Error reversing item sale',
-          data: null
-        }, { status: 500 })
-      }
-
-      return NextResponse.json({
-        status: 'success',
-        message: 'Item updated and sale reversed successfully',
-        data: reversalResult
-      })
-    }
-
-    // For other updates, use the existing update_item_with_transaction function
-    const { data: item, error } = await supabase.rpc('update_item_with_transaction', {
+    // Use the new update_item_with_transaction function
+    const { data: result, error } = await supabase.rpc('update_item_with_transaction', {
       p_id: params.id,
       p_batch_id: currentItem.batch_id,
       p_name: name,
@@ -192,16 +168,10 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       throw error
     }
 
-    if (!item) return NextResponse.json({
-      status: 'error',
-      message: 'Item not found',
-      data: null
-    }, { status: 404 })
-
     return NextResponse.json({
       status: 'success',
       message: 'Item updated successfully',
-      data: item
+      data: result.item
     })
   } catch (error: any) {
     console.error("Error updating item:", error)

@@ -48,7 +48,8 @@ export function ItemsTable({ items, batchId, totalOperationalCosts, onDeleteItem
                                             <TableHead className="whitespace-nowrap">Purchase Price</TableHead>
                                             <TableHead className="whitespace-nowrap">Total Cost</TableHead>
                                             <TableHead className="whitespace-nowrap">Selling Price</TableHead>
-                                            <TableHead className="whitespace-nowrap">Margin</TableHead>
+                                            <TableHead className="whitespace-nowrap">Margin %</TableHead>
+                                            <TableHead className="whitespace-nowrap">Margin Value</TableHead>
                                             <TableHead className="whitespace-nowrap">Status</TableHead>
                                             <TableHead className="whitespace-nowrap">Actions</TableHead>
                                         </TableRow>
@@ -109,7 +110,15 @@ function ItemRow({ item, totalOperationalCosts, itemsLength, onDelete }: ItemRow
             <TableCell>
                 <ProfitIndicator
                     isProfitable={isProfitable}
-                    value={item.sold_status === "sold" ? `${marginPercentage.toFixed(1)}%` : "Projected"}
+                    value={item.sold_status === "sold" 
+                        ? `${marginPercentage.toFixed(1)}%` 
+                        : "Projected"}
+                />
+            </TableCell>
+            <TableCell>
+                <ProfitIndicator
+                    isProfitable={isProfitable}
+                    value={formatCurrency(marginValue)}
                 />
             </TableCell>
             <TableCell>

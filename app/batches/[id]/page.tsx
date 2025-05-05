@@ -196,8 +196,9 @@ export default function BatchDetailPage({ params }: { params: { id: string } }) 
 
   // Calculate financial metrics
   const totalOperationalCosts = operationalCosts.reduce((sum, cost) => sum + cost.amount, 0)
-  const totalProfit = batch.total_revenue - batch.total_cost - totalOperationalCosts
-  const profitPercentage = (totalProfit / (batch.total_cost + totalOperationalCosts)) * 100
+  const totalItemsCost = batch.total_cost - totalOperationalCosts // Extract items cost from total_cost
+  const totalProfit = batch.total_revenue - totalItemsCost - totalOperationalCosts
+  const profitPercentage = (totalProfit / (totalItemsCost + totalOperationalCosts)) * 100
 
   return (
     <>

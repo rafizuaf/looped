@@ -22,14 +22,16 @@ interface Batch {
     total_cost: number;
     total_sold: number;
     total_revenue: number;
+    created_at: string;
+    updated_at: string;
+    deleted_at: string | null;
+    user_id: string;
     items: {
         purchase_price: number;
         selling_price: number;
         sold_status: string;
     }[];
-    operational_costs: {
-        amount: number;
-    }[];
+    operational_costs: OperationalCost[];
 }
 
 interface Item {
@@ -79,6 +81,19 @@ interface BudgetData {
     current_budget: number;
     budget_created_at: string;
     budget_updated_at: string;
+}
+
+interface OperationalCost {
+    id: string;
+    batch_id: string | null;
+    name: string;
+    amount: number;
+    date: string;
+    category: string;
+    created_at: string;
+    deleted_at: string | null;
+    user_id: string;
+    updated_at: string;
 }
 
 export default function DashboardPage() {
@@ -165,64 +180,74 @@ export default function DashboardPage() {
 
                 // Calculate dashboard stats
                 if (batchesData) {
-                    const stats = batchesData.reduce((acc: DashboardStats, batch: Batch) => {
+                    // Calculate total revenue from actual sales
+                    const totalRevenue = batchesData.reduce((sum: number, batch: Batch) => {
                         const soldItems = batch.items.filter(item => item.sold_status === 'sold');
-                        const unsoldItems = batch.items.filter(item => item.sold_status === 'unsold');
+                        return sum + soldItems.reduce((itemSum: number, item: { selling_price: number }) => itemSum + item.selling_price, 0);
+                    }, 0);
 
-                        // Calculate actual revenue and costs for sold items
-                        const actualRevenue = soldItems.reduce((sum, item) => sum + item.selling_price, 0);
-                        const soldCosts = soldItems.reduce((sum, item) => sum + item.purchase_price, 0);
+                    // Calculate total expenses
+                    // 1. Batch purchases (items + batch-specific operational costs)
+                    const batchExpenses = batchesData.reduce((sum: number, batch: Batch) => {
+                        const itemsCost = batch.items.reduce((itemSum: number, item: { purchase_price: number }) => itemSum + item.purchase_price, 0);
+                        const batchOperationalCosts = batch.operational_costs
+                            .filter((cost: OperationalCost) => cost.batch_id === batch.id)
+                            .reduce((costSum: number, cost: OperationalCost) => costSum + cost.amount, 0);
+                        return sum + itemsCost + batchOperationalCosts;
+                    }, 0);
 
-                        // Calculate costs for unsold items (only purchase price, no revenue)
-                        const unsoldCosts = unsoldItems.reduce((sum, item) => sum + item.purchase_price, 0);
+                    // 2. General operational costs (not batch-specific)
+                    const generalOperationalCosts = Math.abs(budgetData.statistics.total_operational_costs) -
+                        batchesData.reduce((sum: number, batch: Batch) => {
+                            return sum + batch.operational_costs
+                                .filter((cost: OperationalCost) => cost.batch_id === batch.id)
+                                .reduce((costSum: number, cost: OperationalCost) => costSum + cost.amount, 0);
+                        }, 0);
 
-                        // Calculate operational costs per item
-                        const operationalCosts = batch.operational_costs.reduce((sum, cost) => sum + cost.amount, 0);
-                        const operationalCostPerItem = operationalCosts / batch.total_items;
+                    const totalExpenses = batchExpenses + generalOperationalCosts;
 
-                        // Add operational costs to both sold and unsold items
-                        const totalSoldCosts = soldCosts + (operationalCostPerItem * soldItems.length);
-                        const totalUnsoldCosts = unsoldCosts + (operationalCostPerItem * unsoldItems.length);
+                    // Calculate net profit
+                    const netProfit = totalRevenue - totalExpenses;
 
-                        acc.totalRevenue += actualRevenue; // Only count revenue from sold items
-                        acc.totalExpenses += totalSoldCosts + totalUnsoldCosts;
-                        acc.totalSold += soldItems.length;
-                        acc.totalItems += batch.total_items || 0;
-                        return acc;
-                    }, {
-                        totalRevenue: 0,
-                        totalExpenses: 0,
-                        totalSold: 0,
-                        totalItems: 0
-                    });
+                    const stats = {
+                        totalRevenue,
+                        totalExpenses,
+                        netProfit,
+                        totalSold: batchesData.reduce((sum: number, batch: Batch) => sum + batch.items.filter(item => item.sold_status === 'sold').length, 0),
+                        totalItems: batchesData.reduce((sum: number, batch: Batch) => sum + batch.total_items, 0)
+                    };
 
-                    stats.netProfit = stats.totalRevenue - stats.totalExpenses;
                     setDashboardStats(stats);
 
                     // Generate financial data for chart
                     const monthlyData = batchesData.reduce((acc: { [key: string]: FinancialData }, batch: Batch) => {
                         const date = new Date(batch.purchase_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
                         const soldItems = batch.items.filter(item => item.sold_status === 'sold');
-                        const unsoldItems = batch.items.filter(item => item.sold_status === 'unsold');
 
-                        // Calculate actual revenue and costs for sold items
+                        // Calculate actual revenue from sold items
                         const income = soldItems.reduce((sum, item) => sum + item.selling_price, 0);
-                        const soldCosts = soldItems.reduce((sum, item) => sum + item.purchase_price, 0);
-                        const unsoldCosts = unsoldItems.reduce((sum, item) => sum + item.purchase_price, 0);
 
-                        // Calculate operational costs
-                        const operationalCosts = batch.operational_costs.reduce((sum, cost) => sum + cost.amount, 0);
-                        const operationalCostPerItem = operationalCosts / batch.total_items;
+                        // Calculate costs for this month
+                        // 1. Items cost
+                        const itemsCost = batch.items.reduce((sum, item) => sum + item.purchase_price, 0);
 
-                        // Add operational costs to both sold and unsold items
-                        const totalSoldCosts = soldCosts + (operationalCostPerItem * soldItems.length);
-                        const totalUnsoldCosts = unsoldCosts + (operationalCostPerItem * unsoldItems.length);
-                        const expenses = totalSoldCosts + totalUnsoldCosts;
+                        // 2. Batch-specific operational costs
+                        const batchOperationalCosts = batch.operational_costs
+                            .filter((cost: OperationalCost) => cost.batch_id === batch.id)
+                            .reduce((sum: number, cost: OperationalCost) => sum + cost.amount, 0);
+
+                        // 3. General operational costs (distributed evenly across batches)
+                        const generalOperationalCosts = (Math.abs(budgetData.statistics.total_operational_costs) -
+                            batchesData.reduce((sum: number, b: Batch) => sum + b.operational_costs
+                                .filter((cost: OperationalCost) => cost.batch_id === b.id)
+                                .reduce((costSum: number, cost: OperationalCost) => costSum + cost.amount, 0), 0)) / batchesData.length;
+
+                        const expenses = itemsCost + batchOperationalCosts + generalOperationalCosts;
 
                         if (!acc[date]) {
                             acc[date] = { date, income: 0, expenses: 0 };
                         }
-                        acc[date].income += income; // Only count income from sold items
+                        acc[date].income += income;
                         acc[date].expenses += expenses;
 
                         return acc;
@@ -390,7 +415,7 @@ export default function DashboardPage() {
                     title="Total Expenses"
                     value={formatCurrency(dashboardStats.totalExpenses)}
                     description="Total expenses (items + operational costs)"
-                    icon={<ShoppingBag className="h-4 w-4" />}
+                    icon={<ShoppingBag className={`h-4 w-4 ${dashboardStats.totalExpenses > dashboardStats.totalRevenue ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`} />}
                     className={`${dashboardStats.totalExpenses > dashboardStats.totalRevenue
                         ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300'
                         : 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300'}`}
@@ -508,23 +533,23 @@ export default function DashboardPage() {
                             <div className="space-y-4">
                                 {batches.map((batch) => {
                                     const soldItems = batch.items.filter(item => item.sold_status === 'sold');
-                                    const unsoldItems = batch.items.filter(item => item.sold_status === 'unsold');
 
-                                    // Calculate actual revenue and costs for sold items
+                                    // Calculate actual revenue from sold items
                                     const actualRevenue = soldItems.reduce((sum, item) => sum + item.selling_price, 0);
-                                    const soldCosts = soldItems.reduce((sum, item) => sum + item.purchase_price, 0);
-                                    const unsoldCosts = unsoldItems.reduce((sum, item) => sum + item.purchase_price, 0);
 
-                                    // Calculate operational costs
-                                    const operationalCosts = batch.operational_costs.reduce((sum, cost) => sum + cost.amount, 0);
-                                    const operationalCostPerItem = operationalCosts / batch.total_items;
+                                    // Calculate batch costs
+                                    // 1. Items cost (both sold and unsold)
+                                    const itemsCost = batch.items.reduce((sum, item) => sum + item.purchase_price, 0);
 
-                                    // Add operational costs to both sold and unsold items
-                                    const totalSoldCosts = soldCosts + (operationalCostPerItem * soldItems.length);
-                                    const totalUnsoldCosts = unsoldCosts + (operationalCostPerItem * unsoldItems.length);
-                                    const totalCost = totalSoldCosts + totalUnsoldCosts;
+                                    // 2. Batch-specific operational costs (all costs in the batch's operational_costs array)
+                                    const batchOperationalCosts = batch.operational_costs
+                                        .reduce((sum: number, cost: { amount: number }) => sum + cost.amount, 0);
 
-                                    const profit = actualRevenue - totalCost; // Only count actual revenue from sold items
+                                    // Total batch cost
+                                    const totalCost = itemsCost + batchOperationalCosts;
+
+                                    // Calculate profit (revenue - total cost)
+                                    const profit = actualRevenue - totalCost;
 
                                     return (
                                         <div key={batch.id} className="flex items-center gap-4">
